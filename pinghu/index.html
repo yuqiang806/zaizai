@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平湖试验中心台架排期甘特图</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1f2d3d; --muted:#6c7886;
+    --line:#e2e6ec; --line2:#eef1f5; --accent:#2f7de1; --danger:#e23b3b;
+    --headbg:#eef2f7;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:13px;}
+  .page{max-width:1860px;margin:0 auto;padding:18px 22px 60px;}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:12px;line-height:1.6;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:84px;text-align:center;box-shadow:0 1px 2px rgba(20,40,70,.04);}
+  .stat b{display:block;font-size:18px;line-height:1.2;}
+  .stat span{font-size:11px;color:var(--muted);}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,40,70,.04);}
+  .toolbar .grp{display:flex;align-items:center;gap:6px;padding-right:8px;border-right:1px solid var(--line2);}
+  .toolbar .grp:last-child{border-right:none;}
+  label.lb{color:var(--muted);font-size:12px;}
+  #btnSave.saved{background:#1f9d55;color:#fff;border-color:#1f9d55;}
+  select,input[type=text],input[type=date]{font-family:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);}
+  input[type=text]:focus,select:focus{border-color:var(--accent);outline:none;}
+  button{font-family:inherit;font-size:12px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 11px;border-radius:7px;transition:.15s;}
+  button:hover{background:#f0f5ff;border-color:#c5d6f5;}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button.primary:hover{background:#2569c4;}
+  button.ghost{background:transparent;border-color:transparent;color:var(--muted);}
+  button.danger{color:var(--danger);border-color:#f3c2c2;}
+  button.danger:hover{background:#fdeaea;}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:0 2px 10px;font-size:12px;color:var(--muted);}
+  .legend .it{display:flex;align-items:center;gap:5px;}
+  .sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.12);}
+
+  .gantt-scroll{overflow:auto;max-height:62vh;border:2px solid #b9c5d4;border-radius:12px;background:#fff;position:relative;box-shadow:0 2px 12px rgba(20,40,70,.12);}
+  .gantt-grid{position:relative;}
+  .ghead{display:flex;position:sticky;top:0;z-index:30;background:#f7f9fc;height:54px;}
+  .gcorner{width:180px;min-width:180px;position:sticky;left:0;z-index:31;background:#eef2f7;border-right:1px solid #d8dee6;border-bottom:1px solid #d8dee6;display:flex;align-items:center;padding:0 12px;font-weight:700;color:#33414f;}
+  .gtimeline-head{position:relative;height:54px;border-bottom:1px solid #d8dee6;}
+  .month-band{position:absolute;top:0;height:54px;border-right:1px solid #d8dee6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#3a4a5a;background:rgba(120,140,170,.05);}
+
+  .group{position:relative;z-index:2;outline:2.5px solid #000;outline-offset:-1px;border-radius:8px;margin:0 4px 6px 0;background:#fff;}
+  .grow{display:flex;position:relative;}
+  .glabel{width:180px;min-width:180px;position:sticky;left:0;z-index:10;background:#f7f9fc;border-right:1px solid var(--line);border-bottom:1px solid var(--line2);display:flex;align-items:center;padding:0 12px;font-weight:600;color:#33414f;box-sizing:border-box;gap:6px;}
+  .grow .glabel{background:#fff;font-weight:700;}
+  .lane{display:flex;position:relative;}
+  .lane .glabel{background:#fff;}
+  .cnt{margin-left:auto;background:#dfe7f3;color:#3a5a8a;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600;}
+  .gspacer{flex:1;border-bottom:1px solid var(--line2);}
+  .gtrack{position:relative;flex:1;border-bottom:1px solid var(--line2);min-height:46px;}
+  .gtrack.placeholder{display:flex;align-items:center;padding-left:12px;color:#9aa3ad;font-size:12px;}
+
+  .gridlines{position:absolute;top:54px;left:180px;bottom:0;pointer-events:none;z-index:1;}
+  .gl-line{position:absolute;top:0;bottom:0;width:1px;background:#eef1f5;}
+  .gl-line.year{background:#d3dae3;width:2px;}
+  .gl-today{position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:40;}
+  .gl-today-label{position:absolute;top:2px;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:10px;padding:0 5px;border-radius:4px;white-space:nowrap;z-index:41;}
+
+  .bar{position:absolute;top:8px;height:30px;border-radius:6px;background:color-mix(in srgb,var(--c) 15%,#fff);border:1px solid var(--c);overflow:visible;cursor:grab;display:flex;align-items:center;font-size:11px;box-sizing:border-box;user-select:none;}
+  .bar:active{cursor:grabbing;}
+  .bar.selected{box-shadow:0 0 0 2px #1f2d3d33, 0 2px 6px rgba(20,40,70,.18);}
+  /* 资源冲突不再以红色突出显示 */
+  .bar-prog{position:absolute;left:0;top:0;bottom:0;background:var(--c);opacity:.5;border-radius:5px 0 0 5px;}
+  .bar-start,.bar-end{position:absolute;top:50%;font-size:10px;color:#555;background:#fff;border:1px solid #cdd4dc;border-radius:4px;padding:0 3px;white-space:nowrap;pointer-events:auto;cursor:grab;z-index:5;line-height:14px;}
+  .bar-start.dragging,.bar-end.dragging,.bar-note.dragging{cursor:grabbing;outline:1.5px dashed #2f7de1;z-index:9;}
+  .bar-note{position:absolute;top:50%;transform:translateY(-50%);font-size:11px;color:#7a8694;background:rgba(255,255,255,.85);border:1px solid #e2e6ec;border-left:3px solid #f0a93c;border-radius:4px;padding:1px 6px;white-space:nowrap;pointer-events:auto;cursor:grab;z-index:4;max-width:260px;overflow:hidden;text-overflow:ellipsis;}
+  .cell-sel{font-family:inherit;font-size:12px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);max-width:150px;}
+  .bar-start{left:-2px;transform:translate(-100%,-50%);}
+  .bar-end{right:-2px;transform:translate(100%,-50%);}
+  /* short bar: stagger dates above / below to avoid overlap */
+  .bar-start.above{top:auto;bottom:calc(100% + 2px);left:0;transform:none;}
+  .bar-end.below{top:calc(100% + 2px);bottom:auto;right:0;transform:none;}
+  .bar-body{position:relative;z-index:2;display:flex;align-items:center;gap:6px;padding:0 8px;width:100%;color:#1f2d3d;overflow:hidden;white-space:nowrap;}
+  .bn{font-weight:600;overflow:hidden;text-overflow:ellipsis;}
+  .bs{color:#5a6b7b;flex:none;}
+  .bp{margin-left:auto;font-weight:700;color:var(--c);flex:none;}
+  .handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:4;}
+  .handle.l{left:0;} .handle.r{right:0;}
+
+  #dragTip{position:fixed;z-index:999;background:#1f2d3d;color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;pointer-events:none;display:none;box-shadow:0 3px 10px rgba(0,0,0,.25);}
+
+  .table-panel{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(20,40,70,.05);}
+  .table-panel h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+  .tbl-wrap{overflow:auto;max-height:42vh;border:1px solid var(--line2);border-radius:8px;}
+  table{border-collapse:collapse;width:100%;font-size:12px;}
+  th,td{border-bottom:1px solid var(--line2);padding:5px 7px;text-align:left;white-space:nowrap;}
+  th{background:#f7f9fc;position:sticky;top:0;z-index:2;color:#465566;font-weight:700;}
+  td input{border:1px solid transparent;background:transparent;width:100%;font-family:inherit;font-size:12px;padding:3px 4px;border-radius:5px;color:var(--ink);}
+  td input:hover{background:#f4f7fb;}
+  td input:focus{background:#fff;border-color:var(--accent);outline:none;}
+  .row-del{cursor:pointer;color:var(--danger);border:none;background:none;font-size:14px;}
+  tfoot td.addrow-cell{background:#fbfcfe;border-top:2px solid var(--line);padding:10px 8px;}
+  .addrow-btn{cursor:pointer;border:1px dashed var(--accent);background:#fff;color:var(--accent);font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px;transition:.15s;}
+  .addrow-btn:hover{background:var(--accent);color:#fff;}
+  .addrow-btn.ghost{border-style:solid;background:#eef4fc;color:var(--accent);}
+  .addrow-multi{margin-left:14px;color:#66707c;font-size:12px;}
+  .addrow-count{width:54px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;text-align:center;}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;}
+  /* 资源冲突不再以红色突出显示 */
+
+  .modal-mask{position:fixed;inset:0;background:rgba(20,30,45,.45);display:none;align-items:center;justify-content:center;z-index:500;}
+  .modal-mask.show{display:flex;}
+  .modal{background:#fff;border-radius:14px;width:460px;max-width:94vw;max-height:90vh;overflow:auto;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,.3);}
+  .modal h3{margin:0 0 14px;font-size:16px;}
+  .field{margin-bottom:11px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;}
+  .field input,.field select,.field textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);}
+  .field textarea{resize:vertical;min-height:48px;}
+  .frow{display:flex;gap:10px;}
+  .frow .field{flex:1;}
+  .modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px;}
+
+  .cloud-badge{font-size:11px;color:var(--muted);margin-left:2px;}
+  .cloud-badge.on{color:#1f9d55;}
+  #cloudMsg{white-space:pre-wrap;line-height:1.5;}
+  .field input[type=password]{letter-spacing:.3px;}
+
+  .tabs{display:flex;gap:6px;margin:0 0 10px;}
+  .tab{border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  @media print{
+    .toolbar,.table-panel,.legend,.modal-mask{display:none !important;}
+    body{background:#fff;}
+    .page{padding:0;}
+    .gantt-scroll{max-height:none;overflow:visible;border:none;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>平湖试验中心台架排期甘特图</h1>
+      <div class="sub">
+        数据快照：更新时间 <b id="updTime">2026-08-25</b> ｜ 来源：平湖试验中心台架排期安排<br>
+        台架含 平湖1-6号台架、第三方试验室、快温变箱 / 高温高湿箱 / 温度冲击箱 / 单工位加载台 等；进度条显示试验名称 / 样机数量 / 当前进度，起止时间在进度条两端。支持拖动、拉伸、双击编辑、云端同步。
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="toolbar">
+    <div class="grp">
+      <label class="lb">项目</label>
+      <select id="fProject"></select>
+    </div>
+    <div class="grp">
+      <label class="lb">状态</label>
+      <select id="fStatus">
+        <option value="">全部</option>
+        <option>进行中</option><option>暂停</option><option>等待</option><option value="__none__">未排期</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label class="lb">台架</label>
+      <select id="fBench"></select>
+    </div>
+    <div class="grp">
+      <label class="lb">搜索</label>
+      <input type="text" id="fSearch" placeholder="试验/项目/备注" style="width:150px;">
+    </div>
+    <div class="grp">
+      <button class="ghost" id="btnReset">重置筛选</button>
+    </div>
+    <div class="grp">
+      <label class="lb">缩放</label>
+      <button id="zoomOut">－</button>
+      <button id="zoomIn">＋</button>
+    </div>
+    <div class="grp">
+      <label class="lb">更新时间</label>
+      <input type="date" id="fUpdate" style="width:140px;">
+    </div>
+    <div class="grp" style="margin-left:auto;">
+      <button class="primary" id="btnAdd">＋ 添加试验</button>
+      <button id="btnBenchMgr" class="ghost">🏷 台架管理</button>
+      <button id="btnSave">💾 保存</button>
+      <button id="btnCloud">☁ 云端同步</button><span id="cloudBadge" class="cloud-badge"></span>
+      <button id="btnUndo">↩ 撤销</button>
+      <button id="btnExportJson">导出JSON</button>
+      <button id="btnExportCsv">导出CSV</button>
+      <button id="btnExportXls">导出Excel</button>
+      <button id="btnExportImg">🖼 导出图片</button>
+      <button id="btnImport">导入JSON</button>
+      <button id="btnImportXls">导入Excel</button>
+      <button id="btnPrint">打印</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="it"><span class="sw" style="background:#2f7de1"></span>进行中</span>
+    <span class="it"><span class="sw" style="background:#e8920c"></span>暂停</span>
+    <span class="it"><span class="sw" style="background:#8a94a6"></span>等待</span>
+    <span class="it"><span class="sw" style="background:#b9c1cd"></span>未排期</span>
+    <span class="it"><span class="sw" style="background:#fff;border:2.5px solid #000"></span>台架外框（黑色加粗）</span>
+    <span class="it" style="margin-left:8px;">🔴 更新线（按更新时间）</span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-page="internal">🏭 平湖台架 / 待排期</button>
+    <button class="tab" data-page="ext">🔬 第三方试验室</button>
+  </div>
+
+  <div class="gantt-scroll" id="ganttScroll">
+    <div class="gantt-grid" id="ganttGrid"></div>
+  </div>
+
+  <div class="table-panel">
+    <h2>📋 数据表（可直接编辑，图表实时联动）</h2>
+    <div class="tbl-wrap">
+      <table id="dataTable">
+        <thead><tr>
+          <th>项目</th><th>试验委托人</th><th>阶段</th><th>试验名称</th><th>样机数量</th>
+          <th>状态</th><th>当前进度(%)</th><th>台架</th><th>开始时间</th><th>结束时间</th><th>备注</th>
+          <th style="text-align:center"><input type="checkbox" id="showAll" checked title="当前页全部显示/隐藏"></th><th></th>
+        </tr></thead>
+        <tbody id="dataBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="13" class="addrow-cell">
+              <button id="addRowBtn" class="addrow-btn" title="在最后添加一行（可指定添加多行）">➕ 添加一行</button>
+              <span class="addrow-multi">
+                添加 <input id="addRowCount" type="number" min="1" max="50" value="1" class="addrow-count"> 行
+                <button id="addRowsBtn" class="addrow-btn ghost" title="按上方数量批量添加行">批量添加</button>
+              </span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="hint">提示：在图表上「拖动」进度条可整体平移时间，「拖动两端」可改起止日期，「双击」进度条打开完整编辑窗口。进度条上的<b>起止时间标签</b>与<b>备注</b>可直接用鼠标拖动到任意位置（位置随记录保存）。修改数据表任意单元格，甘特图即时更新。<b>结束时间支持公式</b>：在结束时间单元格输入 <code>开始+30</code> / <code>开始+30天</code> / <code>+15</code> / <code>2026-06-05+10</code>（即「开始时间+天数」），回车后自动计算并显示为结束日期；修改开始时间后若该结束时间为公式生成，会在数据表中自动重新计算。</div>
+  </div>
+</div>
+
+<div id="dragTip"></div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3 id="modalTitle">编辑试验</h3>
+    <div class="frow">
+      <div class="field"><label>项目</label><input id="m_project" type="text"></div>
+      <div class="field"><label>试验委托人</label><input id="m_manager" type="text"></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>阶段</label><input id="m_stage" type="text"></div>
+      <div class="field"><label>台架</label><input id="m_bench" type="text" list="benchList"></div>
+    </div>
+    <div class="field"><label>试验名称</label><input id="m_testName" type="text"></div>
+    <div class="frow">
+      <div class="field"><label>样机数量</label><input id="m_sample" type="number" min="0"></div>
+      <div class="field"><label>状态</label>
+        <select id="m_status">
+          <option value="">未排期</option><option>进行中</option><option>暂停</option><option>等待</option>
+        </select>
+      </div>
+      <div class="field"><label>当前进度(%)</label><input id="m_progress" type="number" min="0" max="100" step="1"></div>
+    </div>
+    <div class="frow">
+      <div class="field"><label>开始时间</label><input id="m_start" type="date"></div>
+      <div class="field"><label>结束时间（可填 开始+天数）</label><input id="m_end" type="text" placeholder="如 开始+30 / 2026-06-05+10"></div>
+    </div>
+    <div class="field"><label>备注</label><textarea id="m_remark"></textarea></div>
+    <datalist id="benchList"></datalist>
+    <div class="modal-actions">
+      <button class="danger" id="m_delete">删除</button>
+      <div style="display:flex;gap:8px;">
+        <button id="m_cancel">取消</button>
+        <button class="primary" id="m_save">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="cloudMask">
+  <div class="modal" style="width:540px">
+    <h3>☁ 云端同步设置（GitHub 仓库作为云端数据存储）</h3>
+    <div class="field"><label>GitHub 用户名 / 组织（owner）</label><input id="cloudOwner" type="text" placeholder="如 yuqia"></div>
+    <div class="field"><label>仓库名称（repo）</label><input id="cloudRepo" type="text" placeholder="如 bench-gantt"></div>
+    <div class="frow">
+      <div class="field"><label>分支（branch）</label><input id="cloudBranch" type="text" value="main"></div>
+      <div class="field"><label>数据文件路径</label><input id="cloudPath" type="text" value="pinghu/data/gantt_data.json"></div>
+    </div>
+    <div class="field"><label>Personal Access Token（仅保存在本浏览器，需 repo 或 public_repo 权限）</label><input id="cloudToken" type="password" placeholder="ghp_... 或 github_pat_..."></div>
+    <div id="cloudMsg" class="hint">说明：本页托管到任意公开网址（GitHub Pages / CloudStudio 等）后，任何联网电脑打开都会从该仓库读取最新数据；点击「☁ 云端同步」或「💾 保存」会把当前修改提交回仓库，实现跨设备云端保存。Token 仅存于本机浏览器，请使用仅限此仓库的细粒度令牌。</div>
+    <div class="modal-actions">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="cloudTest">测试连接</button>
+        <button id="cloudPull">从云端拉取</button>
+        <button id="cloudPush" class="primary">推送到云端</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="cloudSave">保存配置</button>
+        <button id="cloudClose">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="benchMask">
+  <div class="modal" style="width:480px">
+    <h3>🏷 台架管理（可任意添加 / 删除台架选项）</h3>
+    <div class="hint">在此添加或删除「台架」下拉菜单中的选项。删除仅从下拉选项中移除；若该台架已有排期记录，相关记录仍会保留（需先清空对应记录的台架方可彻底移除该行）。修改会随「💾 保存」一起保存到本地与云端。</div>
+    <div id="benchListBox" style="max-height:260px;overflow:auto;border:1px solid #e2e6ee;border-radius:8px;padding:4px 8px;margin-top:10px;background:#fafbfc;"></div>
+    <div class="frow" style="margin-top:12px;align-items:flex-end;">
+      <div class="field" style="flex:1"><label>新增台架名称</label><input id="newBenchName" type="text" placeholder="如 平湖7号台架 / 振动试验台 / 盐雾试验箱"></div>
+      <div style="display:flex;gap:8px"><button id="btnAddBench" class="primary">＋ 添加</button></div>
+    </div>
+    <div class="modal-actions">
+      <div style="display:flex;gap:8px"><button id="benchClose" class="ghost">关闭</button></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="application/json" style="display:none">
+<input type="file" id="fileInputXls" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+
+<script>
+const RAW_DATA = [
+ {
+  "id": 1,
+  "project": "EP28 800V PV",
+  "manager": "王云云",
+  "stage": "PV",
+  "testName": "EP28 800V PV 高低温循环",
+  "sampleCount": 3,
+  "status": "进行中",
+  "progress": 0.35,
+  "bench": "快温变箱",
+  "start": "2026-08-10",
+  "end": "2026-10-15",
+  "remark": "温变率 5℃/min"
+ },
+ {
+  "id": 2,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "PV",
+  "testName": "NP52 APM5 温湿度试验",
+  "sampleCount": 2,
+  "status": "进行中",
+  "progress": 0.2,
+  "bench": "高温高湿箱",
+  "start": "2026-09-01",
+  "end": "2026-11-20",
+  "remark": "85℃/85%RH"
+ },
+ {
+  "id": 3,
+  "project": "EP28 800V PV",
+  "manager": "王云云",
+  "stage": "PV",
+  "testName": "EP28 800V PV 温度冲击验证",
+  "sampleCount": 3,
+  "status": "已完成",
+  "progress": 1,
+  "bench": "温度冲击箱",
+  "start": "2026-08-20",
+  "end": "2026-09-25",
+  "remark": "-40~125℃"
+ },
+ {
+  "id": 4,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "DV",
+  "testName": "NP52 APM5 单轴加载耐久",
+  "sampleCount": 1,
+  "status": "未开始",
+  "progress": 0,
+  "bench": "单工位加载台",
+  "start": "2026-10-01",
+  "end": "2027-01-15",
+  "remark": "轴向 5kN"
+ },
+ {
+  "id": 5,
+  "project": "EP28 800V PV",
+  "manager": "王云云",
+  "stage": "PV",
+  "testName": "EP28 800V PV 快温变耐久",
+  "sampleCount": 3,
+  "status": "等待",
+  "progress": 0,
+  "bench": "快温变箱",
+  "start": "2026-11-01",
+  "end": "2027-02-28",
+  "remark": "温变率 15℃/min"
+ },
+ {
+  "id": 6,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "DV",
+  "testName": "NP52 APM5 湿热交变",
+  "sampleCount": 2,
+  "status": "未开始",
+  "progress": 0,
+  "bench": "高温高湿箱",
+  "start": "2026-12-01",
+  "end": "2027-03-10",
+  "remark": ""
+ },
+ {
+  "id": 7,
+  "project": "EP28 800V PV",
+  "manager": "王云云",
+  "stage": "PV",
+  "testName": "EP28 800V PV 温度冲击二阶段",
+  "sampleCount": 3,
+  "status": "等待",
+  "progress": 0,
+  "bench": "温度冲击箱",
+  "start": "2026-10-10",
+  "end": "2026-11-30",
+  "remark": "-40~150℃"
+ },
+ {
+  "id": 8,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "DV",
+  "testName": "NP52 APM5 结构加载",
+  "sampleCount": 1,
+  "status": "进行中",
+  "progress": 0.45,
+  "bench": "单工位加载台",
+  "start": "2026-09-15",
+  "end": "2026-12-20",
+  "remark": "多轴组合"
+ },
+ {
+  "id": 9,
+  "project": "EP28 800V PV",
+  "manager": "王云云",
+  "stage": "PV",
+  "testName": "EP28 800V PV 平湖耐久",
+  "sampleCount": 4,
+  "status": "进行中",
+  "progress": 0.3,
+  "bench": "平湖1号台架",
+  "start": "2026-08-15",
+  "end": "2027-01-10",
+  "remark": "整车主控耐久"
+ },
+ {
+  "id": 10,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "DV",
+  "testName": "NP52 APM5 平湖耐久",
+  "sampleCount": 2,
+  "status": "进行中",
+  "progress": 0.25,
+  "bench": "平湖2号台架",
+  "start": "2026-10-05",
+  "end": "2027-02-15",
+  "remark": "变速箱耐久"
+ },
+ {
+  "id": 11,
+  "project": "第三方认证",
+  "manager": "赵敏",
+  "stage": "认证",
+  "testName": "第三方强制认证试验",
+  "sampleCount": 1,
+  "status": "等待",
+  "progress": 0,
+  "bench": "第三方试验室",
+  "start": "2026-09-10",
+  "end": "2026-12-31",
+  "remark": "外部送检"
+ },
+ {
+  "id": 12,
+  "project": "NP52 APM5",
+  "manager": "李雷",
+  "stage": "DV",
+  "testName": "NP52 APM5 加载台校准",
+  "sampleCount": 1,
+  "status": "未开始",
+  "progress": 0,
+  "bench": "单工位加载台",
+  "start": "2027-01-20",
+  "end": "2027-02-20",
+  "remark": "量产前校准"
+ }
+];
+const RAW_BENCHES = [];
+const STATUS_COLORS = {
+  '进行中':'#2f7de1','暂停':'#e8920c','等待':'#8a94a6'
+};
+function statusColor(s){ return STATUS_COLORS[s] || '#b9c1cd'; }
+const ROW_TINTS = ['#dce9fb','#f3e3f1','#e2f3e6'];
+const STATUSES = ['进行中','未开始','已完成','暂停','等待','未排期'];
+function hexToRgb(h){ h=(h||'#000000').replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function mixHex(a,b,t){ const A=hexToRgb(a),B=hexToRgb(b); const m=i=>Math.round(A[i]+(B[i]-A[i])*t); return '#'+[m(0),m(1),m(2)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function pd(s){ if(s instanceof Date) return s; return s? new Date(s+'T00:00:00') : null; }
+function fmtMD(s){ if(!s) return ''; const d=pd(s); return (d.getMonth()+1)+'/'+d.getDate(); }
+function dayDiff(a,b){ return Math.round((pd(b)-pd(a))/86400000); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtISO(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function addDays(s,n){ const d=pd(s); d.setDate(d.getDate()+n); return fmtISO(d); }
+/* 结束时间公式：支持 开始+天数 / 开始+30天 / +15 / 15天 / 2026-06-05+10 / =开始+30 等
+   返回计算后的日期字符串；undefined 表示不是公式；null 表示是公式但缺少开始时间 */
+function evalEndFormula(raw, startStr){
+  raw=String(raw==null?'':raw).trim();
+  if(raw==='') return undefined;
+  let m=raw.match(/^=?(\d{4}-\d{1,2}-\d{1,2})\s*\+\s*(\d+(?:\.\d+)?)\s*(天|d|day|days)?$/i);
+  if(m) return addDays(m[1], Math.round(parseFloat(m[2])));
+  m=raw.match(/^=?(?:开始|start|起|s)\s*\+\s*(\d+(?:\.\d+)?)\s*(天|d|day|days)?$/i);
+  if(m) return startStr? addDays(startStr, Math.round(parseFloat(m[1]))) : null;
+  m=raw.match(/^=?\+\s*(\d+(?:\.\d+)?)\s*(天|d|day|days)?$/i);
+  if(m) return startStr? addDays(startStr, Math.round(parseFloat(m[1]))) : null;
+  m=raw.match(/^=?\s*(\d+(?:\.\d+)?)\s*(天|d|day|days)$/i);
+  if(m) return startStr? addDays(startStr, Math.round(parseFloat(m[1]))) : null;
+  return undefined;
+}
+function parseEndInput(raw, startStr){
+  raw=String(raw==null?'':raw).trim();
+  if(raw==='') return {value:'', isFormula:false};
+  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)) return {value:raw, isFormula:false};
+  const r=evalEndFormula(raw, startStr);
+  if(r===undefined) return {value:raw, isFormula:false};
+  return (r===null) ? {value:'__NEED_START__', isFormula:true} : {value:r, isFormula:true, formula:raw};
+}
+function benchOf(d){ return d.bench && String(d.bench).trim()!=='' ? d.bench : '(未排期)'; }
+
+let DATA = RAW_DATA.map(d=>({...d, show:(d.show===false?false:true)}));
+// 固定可选项：始终出现在台架下拉框与可选设备列表中（即使暂无排期）
+const DEFAULT_BENCHES = ['平湖3号台架','平湖4号台架','平湖5号台架','平湖6号台架','快温变箱','高温高湿箱','温度冲击箱','单工位加载台'];
+// 台架总目录（可任意添加/删除）：初始化为 内置固定选项 ∪ 数据中出现过的台架；云端/本地保存可覆盖
+let BENCHES = [...new Set((RAW_BENCHES||[]).concat(DEFAULT_BENCHES).concat(DATA.map(benchOf).filter(b=>b&&b!=='(未排期)')))];
+function benchCatalog(){ return [...new Set(BENCHES.concat(DATA.map(benchOf).filter(b=>b&&b!=='(未排期)')))]; }
+let pxPerDay = 5;
+const LEFT_W = 180;
+let filter = {project:'', status:'', bench:'', q:''};
+let selectedId = null;
+let currentPage = 'internal';
+let updateTime = new Date();  // 更新时间：今日线（更新线）按此时间绘制
+function getUpdateTime(){ return updateTime; }
+function fmtISO2(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function getRange(){
+  let mn=null, mx=null;
+  DATA.forEach(d=>{ if(d.start){ if(!mn||pd(d.start)<mn) mn=pd(d.start);} if(d.end){ if(!mx||pd(d.end)>mx) mx=pd(d.end);} });
+  if(!mn) mn=new Date(); if(!mx) mx=new Date();
+  mn=new Date(mn); mn.setDate(mn.getDate()-10);
+  mx=new Date(mx); mx.setDate(mx.getDate()+10);
+  return {start:mn, end:mx};
+}
+function benchCategory(b){
+  if(/^平湖/.test(b)) return 'hu';
+  if(/第三方/.test(b)) return 'ext';
+  return 'other';
+}
+function huNumber(b){ const m=String(b).match(/(\d+)/); return m?parseInt(m[1]):999; }
+function getPageBenches(page){
+  if(page==='ext'){
+    const ext=[...new Set(DATA.map(benchOf))].filter(b=>b!=='(未排期)'&&benchCategory(b)==='ext');
+    return ext.sort((a,b)=>a.localeCompare(b,'zh'));
+  }
+  const present=[...new Set(DATA.map(benchOf))].filter(b=>b!=='(未排期)');  // 不显示「未排期」
+  const all=[...new Set(present.concat(BENCHES))];   // 始终纳入固定设备选项
+  const hu=all.filter(b=>benchCategory(b)==='hu').sort((a,b)=>huNumber(a)-huNumber(b));
+  const others=all.filter(b=>benchCategory(b)!=='hu'&&benchCategory(b)!=='ext');
+  const rank=x=> x==='TBD'?0 : (BENCHES.includes(x)?2:1);
+  others.sort((a,b)=>rank(a)-rank(b) || a.localeCompare(b,'zh'));
+  return hu.concat(others);
+}
+function assignLanes(tests){
+  const sorted=[...tests].sort((a,b)=>pd(a.start)-pd(b.start));
+  const lanes=[], ends=[];
+  sorted.forEach(t=>{
+    let placed=false;
+    for(let i=0;i<ends.length;i++){
+      if(pd(t.start)>=ends[i]){ lanes[i].push(t); ends[i]=pd(t.end); placed=true; break; }
+    }
+    if(!placed){ lanes.push([t]); ends.push(pd(t.end)); }
+  });
+  return lanes;
+}
+function isConflict(t){
+  if(!t.start||!t.end) return false;
+  const b=benchOf(t);
+  if(benchCategory(b)!=='hu') return false;   // 仅平湖1-6号台架计算时间冲突
+  return DATA.some(o=>o.id!==t.id && benchOf(o)===b && o.start && o.end && pd(o.start)<pd(t.end) && pd(o.end)>pd(t.start));
+}
+function matchesFilter(d){
+  if(filter.project && d.project!==filter.project) return false;
+  if(filter.bench && benchOf(d)!==filter.bench) return false;
+  if(filter.status==='__none__'){ if(d.status && d.status!=='') return false; }
+  else if(filter.status && d.status!==filter.status) return false;
+  if(filter.q){
+    const q=filter.q.toLowerCase();
+    const hay=[d.project,d.testName,d.remark,d.manager,d.stage,benchOf(d)].join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function barTip(t){
+  const p = t.progress==null?'—':Math.round(t.progress*100)+'%';
+  return `${esc(t.testName||'')}\n项目: ${esc(t.project||'')}  经理: ${esc(t.manager||'')}\n阶段: ${esc(t.stage||'')}  样机: ${esc(t.sampleCount??'')}\n状态: ${esc(t.status||'未排期')}  进度: ${p}\n起: ${esc(t.start||'-')}  止: ${esc(t.end||'-')}\n备注: ${esc(t.remark||'')}`;
+}
+function barHTML(t, range){
+  const left=dayDiff(range.start,t.start)*pxPerDay;
+  const w=Math.max(1,dayDiff(t.start,t.end))*pxPerDay;
+  const prog=(t.progress==null)?null:Math.round(t.progress*100);
+  const c=statusColor(t.status);
+  const bg=mixHex(c,'#ffffff',0.85);
+  const conflict=isConflict(t);
+  const narrow = w < 90;   // 短进度条：起止日期错开到上/下方，避免重叠
+  const startCls = 'bar-start'+(narrow?' above':'');
+  const endCls = 'bar-end'+(narrow?' below':'');
+  const so=t.startOff||{dx:0,dy:0}, eo=t.endOff||{dx:0,dy:0};
+  const sBase = narrow? '' : 'translate(-100%,-50%)';
+  const eBase = narrow? '' : 'translate(100%,-50%)';
+  const sPos = narrow ? 'top:auto;bottom:calc(100% + 2px);left:0;' : 'left:-2px;top:50%;';
+  const ePos = narrow ? 'top:calc(100% + 2px);bottom:auto;right:0;' : 'right:-2px;top:50%;';
+  const sStyle = `${sPos}transform:${sBase} translate(${so.dx}px,${so.dy}px)`;
+  const eStyle = `${ePos}transform:${eBase} translate(${eo.dx}px,${eo.dy}px)`;
+  return `<div class="bar ${conflict?'conflict':''} ${selectedId===t.id?'selected':''}" data-id="${t.id}" title="${barTip(t)}" style="left:${left}px;width:${w}px;--c:${c};background:${bg};">
+      <div class="bar-prog" style="width:${prog==null?0:prog}%"></div>
+      <div class="${startCls}" data-id="${t.id}" data-kind="start" data-base="${sBase}" style="${sStyle}">${fmtMD(t.start)}</div>
+      <div class="bar-body"><span class="bn">${esc(t.testName||'')}</span><span class="bs">样机${esc(t.sampleCount??'?')}</span><span class="bp">${prog==null?'—':prog+'%'}</span></div>
+      <div class="${endCls}" data-id="${t.id}" data-kind="end" data-base="${eBase}" style="${eStyle}">${fmtMD(t.end)}</div>
+      <div class="handle l"></div><div class="handle r"></div>
+    </div>`;
+}
+
+function render(){
+  const grid=document.getElementById('ganttGrid');
+  const range=getRange();
+  const totalDays=dayDiff(range.start,range.end);
+  const timelineW=Math.round(totalDays*pxPerDay);
+  grid.style.width=(LEFT_W+timelineW)+'px';
+
+  // header bands
+  let bands='';
+  const months=[];
+  let m=new Date(range.start.getFullYear(),range.start.getMonth(),1);
+  const lastM=new Date(range.end.getFullYear(),range.end.getMonth(),1);
+  while(m<=lastM){ months.push(new Date(m)); m=new Date(m.getFullYear(),m.getMonth()+1,1); }
+  months.forEach(mo=>{
+    const ms=new Date(mo.getFullYear(),mo.getMonth(),1);
+    const me=new Date(mo.getFullYear(),mo.getMonth()+1,0);
+    const bs=pd(fmtISO(ms))<range.start?range.start:ms;
+    const be=pd(fmtISO(me))>range.end?range.end:me;
+    const x1=dayDiff(range.start,fmtISO(bs))*pxPerDay;
+    const x2=dayDiff(range.start,fmtISO(be))*pxPerDay+pxPerDay;
+    const label=mo.getFullYear()+'年'+(mo.getMonth()+1)+'月';
+    bands+=`<div class="month-band" style="left:${x1}px;width:${x2-x1}px;">${label}</div>`;
+  });
+  const corner=`<div class="ghead"><div class="gcorner">台架 / 试验室</div><div class="gtimeline-head" style="width:${timelineW}px;">${bands}</div></div>`;
+
+  // gridlines
+  let gl='';
+  months.forEach(mo=>{
+    const x=dayDiff(range.start,fmtISO(new Date(mo.getFullYear(),mo.getMonth(),1)))*pxPerDay;
+    const isYear=mo.getMonth()===0;
+    gl+=`<div class="gl-line ${isYear?'year':''}" style="left:${x}px;"></div>`;
+  });
+  const today=getUpdateTime();
+  if(today>=range.start && today<=range.end){
+    const tx=dayDiff(range.start,fmtISO(today))*pxPerDay;
+    gl+=`<div class="gl-today" style="left:${tx}px;"></div><div class="gl-today-label" style="left:${tx}px;">更新 ${fmtMD(fmtISO(today))}</div>`;
+  }
+
+  // groups
+  let body='';
+  const benches=getPageBenches(currentPage);
+  benches.forEach((b,bi)=>{
+    const all=DATA.filter(d=>benchOf(d)===b);
+    const vis=all.filter(matchesFilter).filter(d=>d.show!==false);
+    const dated=vis.filter(d=>d.start&&d.end);
+    const lanes=assignLanes(dated);
+    let lanesHTML='';
+    if(lanes.length){
+      lanes.forEach(lane=>{
+        let inner='';
+        lane.forEach((t,i)=>{
+          inner+=barHTML(t,range);
+          if(t.remark){
+            const left=dayDiff(range.start,t.start)*pxPerDay;
+            const w=Math.max(1,dayDiff(t.start,t.end))*pxPerDay;
+            const rightEdge=left+w;
+            const et=fmtMD(t.end); const etw=et.length*6;          // 结束时间文字宽度(约)
+            const gap=8+etw+44;                                    // 退后4个字(≈44px)避开时间标签
+            const next = lane[i+1] ? dayDiff(range.start,lane[i+1].start)*pxPerDay : Infinity;
+            const no=t.noteOff||{dx:0,dy:0};
+            const noteStyle=`left:${rightEdge+gap}px;top:50%;transform:translateY(-50%) translate(${no.dx}px,${no.dy}px)`;
+            if(i===lane.length-1 || next-rightEdge>gap+10){
+              inner+=`<div class="bar-note" data-id="${t.id}" data-kind="note" data-base="translateY(-50%)" style="${noteStyle}" title="${esc(t.remark)}">← ${esc(t.remark)}</div>`;
+            }
+          }
+        });
+        lanesHTML+=`<div class="lane"><div class="glabel" style="background:#fff"></div><div class="gtrack" style="background:#fff">`+inner+`</div></div>`;
+      });
+    } else {
+      const ph=vis.length?('待排期：'+vis.map(t=>esc(t.testName||'')).join('、')):'（无显示项）';
+      lanesHTML+=`<div class="lane"><div class="glabel" style="background:#fff"></div><div class="gtrack placeholder" style="background:#fff">${ph}</div></div>`;
+    }
+    const g=`<div class="group"><div class="grow"><div class="glabel">${esc(b)}<span class="cnt">${vis.length}</span></div><div class="gspacer"></div></div>${lanesHTML}</div>`;
+    body+=g;
+  });
+
+  grid.innerHTML=corner+body+`<div class="gridlines" style="width:${timelineW}px;">${gl}</div>`;
+  renderStats();
+}
+
+function renderStats(){
+  const total=DATA.length;
+  const prog=DATA.filter(d=>d.status==='进行中').length;
+  const pause=DATA.filter(d=>d.status==='暂停').length;
+  const wait=DATA.filter(d=>d.status==='等待').length;
+  const conflict=DATA.filter(isConflict).length;
+  document.getElementById('stats').innerHTML=
+    `<div class="stat"><b>${total}</b><span>试验总数</span></div>`+
+    `<div class="stat"><b style="color:#2f7de1">${prog}</b><span>进行中</span></div>`+
+    `<div class="stat"><b style="color:#e8920c">${pause}</b><span>暂停</span></div>`+
+    `<div class="stat"><b style="color:#8a94a6">${wait}</b><span>等待</span></div>`+
+    `<div class="stat"><b style="color:#33414f">${conflict}</b><span>时间冲突</span></div>`;
+}
+
+/* ---------- table ---------- */
+function renderTable(){
+  const body=document.getElementById('dataBody');
+  const pageBenches=getPageBenches(currentPage);
+  const stageOpts=[...new Set(DATA.map(d=>d.stage).filter(Boolean))];
+  const benchOpts=[...new Set(DATA.map(benchOf).filter(Boolean).concat(BENCHES))].filter(b=>b!=='(未排期)');  // 台架列不提供「未排期」，但始终含固定设备选项
+  const optList=(vals,cur)=>vals.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('')+(cur&&!vals.includes(cur)?`<option selected>${esc(cur)}</option>`:'');
+  let html='';
+  DATA.filter(d=>pageBenches.includes(benchOf(d))).filter(matchesFilter).forEach(d=>{
+    const conflict=isConflict(d);
+    const p=d.progress==null?'':Math.round(d.progress*100);
+    const sc=statusColor(d.status);
+    const stPill=d.status?`<span class="pill" style="background:${sc}">${esc(d.status)}</span>`:'';
+    html+=`<tr class="${conflict?'conflict-row':''}" data-id="${d.id}">`+
+      `<td><input data-id="${d.id}" data-f="project" value="${esc(d.project||'')}"></td>`+
+      `<td><input data-id="${d.id}" data-f="manager" value="${esc(d.manager||'')}"></td>`+
+      `<td><select class="cell-sel" data-id="${d.id}" data-f="stage">${optList(stageOpts,d.stage)}</select></td>`+
+      `<td><input data-id="${d.id}" data-f="testName" value="${esc(d.testName||'')}"></td>`+
+      `<td><input data-id="${d.id}" data-f="sampleCount" type="number" min="0" value="${esc(d.sampleCount??'')}" style="width:60px"></td>`+
+      `<td>${stPill}<select class="cell-sel" data-id="${d.id}" data-f="status">${optList(STATUSES,d.status)}</select></td>`+
+      `<td><input data-id="${d.id}" data-f="progress" type="number" min="0" max="100" value="${p}" style="width:56px"></td>`+
+      `<td><select class="cell-sel" data-id="${d.id}" data-f="bench">${optList(benchOpts,d.bench)}</select></td>`+
+      `<td><input data-id="${d.id}" data-f="start" type="date" value="${esc(d.start||'')}"></td>`+
+      `<td><input data-id="${d.id}" data-f="end" type="date" value="${esc(d.end||'')}"></td>`+
+      `<td><input data-id="${d.id}" data-f="remark" value="${esc(d.remark||'')}"></td>`+
+      `<td style="text-align:center"><input type="checkbox" class="showcb" data-id="${d.id}" data-f="show" ${d.show!==false?'checked':''} title="在甘特图中显示"></td>`+
+      `<td><button class="row-del" data-del="${d.id}" title="删除">✕</button></td>`+
+    `</tr>`;
+  });
+  body.innerHTML=html;
+}
+
+/* ---------- interactions ---------- */
+let dragMode=null, dragStartX=0, dragOrigStart=null, dragOrigEnd=null, dragRange=null;
+const dragTip=document.getElementById('dragTip');
+
+/* ---------- undo ---------- */
+let undoStack=[];
+function snapshot(){ undoStack.push(JSON.stringify(DATA)); if(undoStack.length>60) undoStack.shift(); }
+function undo(){ if(!undoStack.length){ alert('没有可撤销的操作'); return; } DATA=JSON.parse(undoStack.pop()); buildSelectors(); render(); renderTable(); }
+
+/* ---------- save (persist current edits as latest version) ---------- */
+const SAVE_KEY='bench_gantt_v1';
+function saveVersion(){
+  try{
+    const payload={ts:Date.now(), data:DATA, benches:BENCHES};
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));   // 当前浏览器/设备
+    const btn=document.getElementById('btnSave');
+    const old=btn.textContent;
+    btn.textContent='✓ 已保存';
+    btn.classList.add('saved');
+    clearTimeout(btn.__t);
+    btn.__t=setTimeout(()=>{ btn.textContent='💾 保存'; btn.classList.remove('saved'); },1500);
+    return true;
+  }catch(e){ alert('保存失败：'+e.message); return false; }
+}
+// 把当前数据烘焙进 HTML，生成可移植的单文件（任意电脑离线可用）
+function savePortableFile(){
+  try{
+    const html=document.documentElement.outerHTML;
+    const dataJson=JSON.stringify(DATA,null,0);
+    // 替换内嵌的 RAW_DATA 数据块（锚定到其后的 const STATUS_COLORS，避免误匹配数据中的 ]），使导出的文件自带最新数据
+    const re=/const RAW_DATA\s*=\s*\[[\s\S]*?\];\s*\n\s*const STATUS_COLORS/;
+    if(!re.test(html)){ alert('生成离线文件失败：未找到数据块'); return false; }
+    let baked=html.replace(re, 'const RAW_DATA = '+dataJson+';\nconst STATUS_COLORS');
+    const reB=/const RAW_BENCHES\s*=\s*\[[^\]]*\]/;
+    if(reB.test(baked)) baked=baked.replace(reB, 'const RAW_BENCHES = '+JSON.stringify(BENCHES));
+    const blob=new Blob([baked],{type:'text/html;charset=utf-8'});
+    const ts=new Date().toISOString().slice(0,10);
+    download(blob,'台架试验甘特图_'+ts+'.html');
+    return true;
+  }catch(e){ alert('生成离线文件失败：'+e.message); return false; }
+}
+function loadSavedVersion(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    const p=JSON.parse(raw);
+    if(Array.isArray(p.data) && p.data.length){ DATA=p.data.map(d=>({...d, show:(d.show===false?false:true)})); if(Array.isArray(p.benches)) BENCHES=p.benches.slice(); return true; }
+  }catch(e){}
+  return false;
+}
+
+/* ---------- 云端同步：以 GitHub 仓库作为云端数据存储 ---------- */
+function enc(s){ return encodeURIComponent(s); }
+function utos(str){ return btoa(unescape(encodeURIComponent(str))); }   // UTF-8 字符串 -> base64
+function utob(b64){ return decodeURIComponent(escape(atob(b64))); }    // base64 -> UTF-8 字符串
+const CloudSync = {
+  KEY:'bench_gantt_cloud_v1',
+  cfg:null,
+  loadCfg(){ try{ this.cfg=JSON.parse(localStorage.getItem(this.KEY))||null; }catch(e){ this.cfg=null; } return this.cfg; },
+  saveCfg(cfg){ this.cfg=cfg; localStorage.setItem(this.KEY, JSON.stringify(cfg)); },
+  apiHeaders(extra){
+    const h=Object.assign({'Accept':'application/vnd.github+json'}, extra||{});
+    if(this.cfg && this.cfg.token) h['Authorization']='Bearer '+this.cfg.token;
+    return h;
+  },
+  async getSha(path){
+    const c=this.cfg;
+    const url=`https://api.github.com/repos/${enc(c.owner)}/${enc(c.repo)}/contents/${enc(path)}?ref=${enc(c.branch||'main')}`;
+    const r=await fetch(url,{headers:this.apiHeaders()});
+    if(r.status===404) return null;
+    if(!r.ok) throw new Error('读取仓库失败 ('+r.status+')');
+    return (await r.json()).sha;
+  },
+  async pull(){
+    const c=this.cfg; if(!c||!c.owner||!c.repo||!c.path) throw new Error('未配置云端仓库');
+    const url=`https://api.github.com/repos/${enc(c.owner)}/${enc(c.repo)}/contents/${enc(c.path)}?ref=${enc(c.branch||'main')}`;
+    const r=await fetch(url,{headers:this.apiHeaders()});
+    if(r.status===404) throw new Error('云端文件不存在：'+c.path+'（请先推送一次或手动创建该文件）');
+    if(!r.ok) throw new Error('读取失败 ('+r.status+')');
+    const j=await r.json();
+    const arr=JSON.parse(utob(j.content));
+    if(!Array.isArray(arr)) throw new Error('云端数据格式不正确');
+    DATA=arr.map(d=>({...d, show:(d.show===false?false:true)}));
+    buildSelectors(); render(); renderTable();
+    return arr.length;
+  },
+  async push(){
+    const c=this.cfg; if(!c||!c.owner||!c.repo||!c.path) throw new Error('未配置云端仓库');
+    if(!c.token) throw new Error('需要 Token 才能写入云端');
+    const sha=await this.getSha(c.path);
+    const content=utos(JSON.stringify(DATA,null,2));
+    const url=`https://api.github.com/repos/${enc(c.owner)}/${enc(c.repo)}/contents/${enc(c.path)}`;
+    const body=JSON.stringify({
+      message:'更新台架试验安排 '+new Date().toISOString().slice(0,19).replace('T',' '),
+      content, branch:c.branch||'main', ...(sha?{sha}:{})
+    });
+    const r=await fetch(url,{method:'PUT', headers:this.apiHeaders({'Content-Type':'application/json'}), body});
+    if(!r.ok){ let m=''; try{ m=(await r.json()).message||''; }catch(e){} if(!m){ try{ m=await r.text(); }catch(e){} } throw new Error('提交失败 ('+r.status+') '+(m||'').slice(0,200)); }
+    return true;
+  }
+};
+function cloudMsg(text, ok){
+  const el=document.getElementById('cloudMsg'); if(!el) return;
+  el.style.color = ok===true?'#1f9d55':(ok===false?'#e23b3b':'#465566');
+  el.textContent=text;
+}
+function cloudSync(action){
+  if(!CloudSync.cfg || !CloudSync.cfg.owner || !CloudSync.cfg.path){ openCloud(); return; }
+  cloudMsg('同步中…');
+  (action==='pull'?CloudSync.pull():CloudSync.push())
+    .then(n=>{
+      const t=new Date().toLocaleString('zh-CN');
+      if(action==='pull') cloudMsg('已从云端拉取 '+n+' 条 · '+t, true);
+      else { cloudMsg('已推送到云端 · '+t, true); updateCloudBadge(); }
+    })
+    .catch(e=>{ cloudMsg('同步失败：'+e.message, false); });
+}
+function updateCloudBadge(){
+  const b=document.getElementById('cloudBadge'); if(!b) return;
+  if(CloudSync.cfg && CloudSync.cfg.owner){ b.textContent='☁ 已连接'; b.classList.add('on'); }
+  else { b.textContent=''; b.classList.remove('on'); }
+}
+function openCloud(){
+  const c=CloudSync.cfg||{};
+  document.getElementById('cloudOwner').value=c.owner||'';
+  document.getElementById('cloudRepo').value=c.repo||'';
+  document.getElementById('cloudBranch').value=c.branch||'main';
+  document.getElementById('cloudPath').value=c.path||'pinghu/data/gantt_data.json';
+  document.getElementById('cloudToken').value=c.token||'';
+  cloudMsg('');
+  document.getElementById('cloudMask').classList.add('show');
+}
+function readCloudFields(){
+  const cfg={
+    owner:document.getElementById('cloudOwner').value.trim(),
+    repo:document.getElementById('cloudRepo').value.trim(),
+    branch:document.getElementById('cloudBranch').value.trim()||'main',
+    path:document.getElementById('cloudPath').value.trim()||'pinghu/data/gantt_data.json',
+    token:document.getElementById('cloudToken').value.trim()
+  };
+  CloudSync.saveCfg(cfg); updateCloudBadge(); return cfg;
+}
+
+document.getElementById('ganttGrid').addEventListener('mousedown',e=>{
+  const bar=e.target.closest('.bar'); if(!bar) return;
+  if(e.target.closest('.bar-start,.bar-end,.bar-note')) return; // 时间标签/备注由各自的拖动逻辑处理
+  snapshot();
+  const id=+bar.dataset.id; selectedId=id;
+  const t=DATA.find(d=>d.id===id);
+  const handle=e.target.closest('.handle');
+  dragMode=handle?(handle.classList.contains('l')?'resize-l':'resize-r'):'move';
+  dragStartX=e.clientX; dragOrigStart=t.start; dragOrigEnd=t.end; dragRange=getRange();
+  bar.classList.add('selected');
+  e.preventDefault();
+  document.addEventListener('mousemove',onDrag);
+  document.addEventListener('mouseup',onUp);
+});
+function onDrag(e){
+  const dx=e.clientX-dragStartX;
+  const dd=Math.round(dx/pxPerDay);
+  const t=DATA.find(d=>d.id===selectedId);
+  if(dragMode==='move'){ t.start=addDays(dragOrigStart,dd); t.end=addDays(dragOrigEnd,dd); }
+  else if(dragMode==='resize-l'){ t.start=addDays(dragOrigStart,dd); if(pd(t.start)>=pd(t.end)) t.start=addDays(t.end,-1); }
+  else { t.end=addDays(dragOrigEnd,dd); if(pd(t.end)<=pd(t.start)) t.end=addDays(t.start,1); }
+  delete t.endFormula;
+  const bar=document.querySelector(`.bar[data-id="${t.id}"]`);
+  if(bar){
+    const left=dayDiff(dragRange.start,t.start)*pxPerDay;
+    const w=Math.max(1,dayDiff(t.start,t.end))*pxPerDay;
+    bar.style.left=left+'px'; bar.style.width=w+'px';
+    bar.querySelector('.bar-start').textContent=fmtMD(t.start);
+    bar.querySelector('.bar-end').textContent=fmtMD(t.end);
+  }
+  dragTip.style.display='block';
+  dragTip.style.left=(e.clientX+12)+'px';
+  dragTip.style.top=(e.clientY+12)+'px';
+  dragTip.textContent=`${t.start} → ${t.end}`;
+}
+function onUp(){
+  document.removeEventListener('mousemove',onDrag);
+  document.removeEventListener('mouseup',onUp);
+  dragMode=null; dragTip.style.display='none';
+  render(); renderTable();
+}
+
+/* ---------- 拖动「时间标签 / 备注」手动调整位置 ---------- */
+let annDrag=null;
+function annKey(kind){ return kind==='start'?'startOff':kind==='end'?'endOff':'noteOff'; }
+document.getElementById('ganttGrid').addEventListener('mousedown',e=>{
+  const ann=e.target.closest('.bar-start,.bar-end,.bar-note'); if(!ann) return;
+  e.preventDefault(); e.stopPropagation();
+  const id=+ann.dataset.id, kind=ann.dataset.kind, base=ann.dataset.base||'';
+  const rec=DATA.find(d=>d.id===id)||{};
+  const off=rec[annKey(kind)]||{dx:0,dy:0};
+  ann.classList.add('dragging');
+  annDrag={el:ann,id,kind,base,startX:e.clientX,startY:e.clientY,off:{dx:off.dx,dy:off.dy},cur:null};
+  document.addEventListener('mousemove',annMove);
+  document.addEventListener('mouseup',annUp);
+});
+function annMove(e){
+  if(!annDrag) return;
+  const dx=annDrag.off.dx+(e.clientX-annDrag.startX);
+  const dy=annDrag.off.dy+(e.clientY-annDrag.startY);
+  annDrag.el.style.transform=annDrag.base+' translate('+dx+'px,'+dy+'px)';
+  annDrag.cur={dx,dy};
+}
+function annUp(){
+  if(!annDrag) return;
+  document.removeEventListener('mousemove',annMove);
+  document.removeEventListener('mouseup',annUp);
+  const a=annDrag; annDrag=null; a.el.classList.remove('dragging');
+  if(a.cur){
+    snapshot();
+    const rec=DATA.find(d=>d.id===a.id);
+    if(rec){ rec[annKey(a.kind)]={dx:a.cur.dx,dy:a.cur.dy}; }
+    render(); renderTable();
+  }
+}
+document.getElementById('ganttGrid').addEventListener('dblclick',e=>{
+  const bar=e.target.closest('.bar'); if(!bar) return;
+  if(e.target.closest('.bar-start,.bar-end,.bar-note')) return; // 双击标签/备注不打开弹窗
+  openModal(+bar.dataset.id);
+});
+
+document.getElementById('dataBody').addEventListener('change',e=>{
+  const inp=e.target.closest('input,select'); if(!inp) return;
+  snapshot();
+  const id=+inp.dataset.id, f=inp.dataset.f;
+  const rec=DATA.find(d=>d.id===id); if(!rec) return;
+  if(f==='show'){ rec.show=inp.checked; render(); return; }
+  if(f==='end'){
+    const res=parseEndInput(inp.value, rec.start);
+    if(res.value==='__NEED_START__'){ alert('请先填写「开始时间」再使用公式（如 开始+30）'); inp.value=rec.end||''; render(); renderTable(); return; }
+    rec.end=res.value;
+    if(res.isFormula && res.formula!=null) rec.endFormula=res.formula; else delete rec.endFormula;
+    inp.value=res.value;
+    render(); renderTable();
+    return;
+  }
+  let v=inp.value;
+  if(f==='sampleCount') v=(v===''||isNaN(+v))?0:parseInt(v);
+  if(f==='progress') v=(v==='')?null:Math.min(100,Math.max(0,parseFloat(v)))/100;
+  rec[f]=v;
+  if(f==='start' && rec.endFormula){ const r=evalEndFormula(rec.endFormula, rec.start); if(r) rec.end=r; }
+  if(['bench','start','end','status','project'].includes(f)){ render(); renderTable(); }
+  else { render(); }
+});
+document.getElementById('dataBody').addEventListener('click',e=>{
+  const del=e.target.closest('[data-del]'); if(!del) return;
+  const id=+del.dataset.del;
+  if(confirm('确认删除该试验记录？')){ snapshot(); DATA=DATA.filter(d=>d.id!==id); render(); renderTable(); }
+});
+
+/* ---------- add row(s) ---------- */
+function addRows(n){
+  n=Math.max(1,Math.min(50,parseInt(n)||1));
+  const pageBenches=getPageBenches(currentPage);
+  const defBench=pageBenches[0]||'(未排期)';
+  snapshot();
+  let maxId=DATA.reduce((m,d)=>Math.max(m,d.id||0),0);
+  for(let i=0;i<n;i++){
+    maxId++;
+    const rec={id:maxId, project:'', manager:'', stage:'', testName:'', sampleCount:0,
+      status:'未开始', progress:0, bench:defBench, start:'', end:'', remark:'', show:true};
+    DATA.push(rec);
+  }
+  render(); renderTable();
+  // focus the first newly added row's project cell for quick entry
+  const rows=document.querySelectorAll('#dataBody tr[data-id]');
+  const lastN=rows[rows.length-n];
+  if(lastN){ const inp=lastN.querySelector('input[data-f="project"]'); if(inp){ inp.focus(); } }
+}
+document.getElementById('addRowBtn').addEventListener('click',()=>addRows(1));
+document.getElementById('addRowsBtn').addEventListener('click',()=>{
+  const c=document.getElementById('addRowCount').value;
+  addRows(c);
+});
+
+/* ---------- modal ---------- */
+let modalId=null;
+const mask=document.getElementById('modalMask');
+function openModal(id){
+  modalId=id;
+  let d;
+  if(id==='new'){ d={id:Math.max(0,...DATA.map(x=>x.id))+1,project:'',manager:'',stage:'',testName:'',sampleCount:1,status:'',progress:null,bench:'',start:'',end:'',remark:''}; document.getElementById('modalTitle').textContent='添加试验'; }
+  else { d=DATA.find(x=>x.id===id); document.getElementById('modalTitle').textContent='编辑试验'; }
+  document.getElementById('m_project').value=d.project||'';
+  document.getElementById('m_manager').value=d.manager||'';
+  document.getElementById('m_stage').value=d.stage||'';
+  document.getElementById('m_bench').value=d.bench||'';
+  document.getElementById('m_testName').value=d.testName||'';
+  document.getElementById('m_sample').value=d.sampleCount??'';
+  document.getElementById('m_status').value=d.status||'';
+  document.getElementById('m_progress').value=d.progress==null?'':Math.round(d.progress*100);
+  document.getElementById('m_start').value=d.start||'';
+  document.getElementById('m_end').value=(d.endFormula&&d.endFormula!=='')?d.endFormula:(d.end||'');
+  document.getElementById('m_remark').value=d.remark||'';
+  document.getElementById('m_delete').style.display=(id==='new')?'none':'inline-block';
+  mask.classList.add('show');
+}
+function closeModal(){ mask.classList.remove('show'); modalId=null; }
+document.getElementById('m_cancel').onclick=closeModal;
+mask.addEventListener('click',e=>{ if(e.target===mask) closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+document.getElementById('m_save').onclick=()=>{
+  snapshot();
+  const get=id=>document.getElementById(id).value;
+  const startVal=get('m_start');
+  const endRes=parseEndInput(get('m_end'), startVal);
+  if(endRes.value==='__NEED_START__'){ alert('请先填写「开始时间」再使用公式（如 开始+30）'); return; }
+  const obj={project:get('m_project'),manager:get('m_manager'),stage:get('m_stage'),bench:get('m_bench'),
+    testName:get('m_testName'),sampleCount:get('m_sample')===''?'':parseInt(get('m_sample')),
+    status:get('m_status'),progress:get('m_progress')===''?null:Math.min(100,Math.max(0,parseFloat(get('m_progress'))))/100,
+    start:startVal,end:endRes.value,endFormula:(endRes.isFormula&&endRes.formula!=null)?endRes.formula:'',remark:get('m_remark')};
+  if(modalId==='new'){ obj.id=Math.max(0,...DATA.map(x=>x.id))+1; DATA.push(obj); }
+  else { const r=DATA.find(x=>x.id===modalId); Object.assign(r,obj); }
+  closeModal(); render(); renderTable();
+};
+document.getElementById('m_delete').onclick=()=>{
+  if(modalId!=='new' && confirm('确认删除该试验记录？')){ snapshot(); DATA=DATA.filter(d=>d.id!==modalId); closeModal(); render(); renderTable(); }
+};
+
+/* ---------- filters & toolbar ---------- */
+function buildSelectors(){
+  const projects=[...new Set(DATA.map(d=>d.project).filter(Boolean))];
+  const benches=getPageBenches(currentPage);
+  const fp=document.getElementById('fProject'); fp.innerHTML='<option value="">全部</option>'+projects.map(p=>`<option>${esc(p)}</option>`).join('');
+  const fb=document.getElementById('fBench'); fb.innerHTML='<option value="">全部</option>'+benches.map(b=>`<option>${esc(b)}</option>`).join('');
+  const allBenches=[...new Set(DATA.map(benchOf).filter(Boolean).concat(BENCHES))].filter(b=>b!=='(未排期)');
+  document.getElementById('benchList').innerHTML=allBenches.map(b=>`<option value="${esc(b)}">`).join('');
+}
+document.getElementById('fProject').onchange=e=>{ filter.project=e.target.value; render(); renderTable(); };
+document.getElementById('fStatus').onchange=e=>{ filter.status=e.target.value; render(); renderTable(); };
+document.getElementById('fBench').onchange=e=>{ filter.bench=e.target.value; render(); renderTable(); };
+document.getElementById('fSearch').oninput=e=>{ filter.q=e.target.value.trim(); render(); renderTable(); };
+document.getElementById('fUpdate').onchange=e=>{
+  if(e.target.value){ const p=e.target.value.split('-'); updateTime=new Date(+p[0],+p[1]-1,+p[2]); }
+  else { updateTime=new Date(); }
+  render();
+};
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    currentPage=t.dataset.page;
+    filter.bench='';
+    buildSelectors();
+    document.getElementById('fBench').value='';
+    render(); renderTable();
+  };
+});
+document.getElementById('btnReset').onclick=()=>{ filter={project:'',status:'',bench:'',q:''}; document.getElementById('fProject').value=''; document.getElementById('fStatus').value=''; document.getElementById('fBench').value=''; document.getElementById('fSearch').value=''; render(); renderTable(); };
+document.getElementById('zoomIn').onclick=()=>{ manualZoom=true; pxPerDay=Math.min(14,pxPerDay+1); render(); };
+document.getElementById('zoomOut').onclick=()=>{ manualZoom=true; pxPerDay=Math.max(2,pxPerDay-1); render(); };
+document.getElementById('btnAdd').onclick=()=>openModal('new');
+document.getElementById('btnSave').onclick=()=>{ snapshot(); saveVersion(); savePortableFile(); if(CloudSync.cfg && CloudSync.cfg.owner && CloudSync.cfg.token){ cloudSync('push'); } };
+document.getElementById('btnUndo').onclick=undo;
+document.getElementById('btnCloud').onclick=()=>cloudSync('push');
+
+/* ---------- 台架管理：任意添加 / 删除台架选项 ---------- */
+function renderBenchListBox(){
+  const box=document.getElementById('benchListBox');
+  const list=benchCatalog().slice().sort((a,b)=>a.localeCompare(b,'zh'));
+  if(!list.length){ box.innerHTML='<div style="padding:10px;color:#8a94a6">（暂无台架选项）</div>'; return; }
+  box.innerHTML=list.map(b=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 6px;border-bottom:1px solid #eef1f5">
+      <span style="font-weight:500">${esc(b)}</span>
+      <button class="row-del" data-delbench="${esc(b)}" title="删除该台架选项">✕</button>
+    </div>`).join('');
+}
+function openBenchMgr(){ renderBenchListBox(); document.getElementById('benchMask').classList.add('show'); const i=document.getElementById('newBenchName'); i.value=''; setTimeout(()=>i.focus(),50); }
+document.getElementById('btnBenchMgr').onclick=openBenchMgr;
+document.getElementById('benchClose').onclick=()=>document.getElementById('benchMask').classList.remove('show');
+document.getElementById('benchMask').addEventListener('click',e=>{ if(e.target===document.getElementById('benchMask')) document.getElementById('benchMask').classList.remove('show'); });
+document.getElementById('btnAddBench').onclick=()=>{
+  const v=document.getElementById('newBenchName').value.trim();
+  if(!v){ alert('请输入台架名称'); return; }
+  if(BENCHES.includes(v)){ alert('该台架已存在'); return; }
+  snapshot(); BENCHES.push(v); saveVersion(); renderBenchListBox(); buildSelectors(); render(); renderTable();
+  const i=document.getElementById('newBenchName'); i.value=''; i.focus();
+};
+document.getElementById('newBenchName').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('btnAddBench').click(); });
+document.getElementById('benchListBox').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-delbench]'); if(!btn) return;
+  const name=btn.getAttribute('data-delbench');
+  const used=DATA.some(d=>benchOf(d)===name);
+  if(!confirm('确认从台架选项中删除「'+name+'」？'+(used?'\n注意：该台架当前仍有排期记录，记录将保留，仅下拉不再提供此选项。':''))) return;
+  snapshot(); BENCHES=BENCHES.filter(x=>x!==name); saveVersion(); renderBenchListBox(); buildSelectors(); render(); renderTable();
+});
+document.getElementById('cloudClose').onclick=()=>document.getElementById('cloudMask').classList.remove('show');
+document.getElementById('cloudMask').addEventListener('click',e=>{ if(e.target===document.getElementById('cloudMask')) document.getElementById('cloudMask').classList.remove('show'); });
+document.getElementById('cloudSave').onclick=()=>{ readCloudFields(); cloudMsg('配置已保存到本机（仅此浏览器）', true); };
+document.getElementById('cloudTest').onclick=()=>{
+  const cfg=readCloudFields();
+  if(!cfg.owner||!cfg.repo){ cloudMsg('请填写用户名和仓库名', false); return; }
+  cloudMsg('连接中…');
+  fetch(`https://api.github.com/repos/${enc(cfg.owner)}/${enc(cfg.repo)}`,{headers:cfg.token?{'Authorization':'Bearer '+cfg.token}:{}})
+    .then(r=>{ if(!r.ok) throw new Error('无法访问仓库 ('+r.status+')'); return r.json(); })
+    .then(j=>{ cloudMsg('连接成功：'+j.full_name+'（默认分支 '+j.default_branch+'）', true); document.getElementById('cloudBranch').value=document.getElementById('cloudBranch').value.trim()||j.default_branch; })
+    .catch(e=>{ cloudMsg('连接失败：'+e.message, false); });
+};
+document.getElementById('cloudPull').onclick=()=>{ readCloudFields(); cloudSync('pull'); };
+document.getElementById('cloudPush').onclick=()=>{ readCloudFields(); cloudSync('push'); };
+document.getElementById('btnPrint').onclick=()=>window.print();
+document.getElementById('btnExportImg').onclick=exportPNG;
+document.getElementById('showAll').onchange=e=>{
+  snapshot();
+  const benches=new Set(getPageBenches(currentPage));
+  DATA.forEach(d=>{ if(benches.has(benchOf(d))) d.show=e.target.checked; });
+  render(); renderTable();
+};
+
+document.getElementById('btnExportJson').onclick=()=>{
+  const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  download(blob,'台架试验安排_编辑后.json');
+};
+document.getElementById('btnExportCsv').onclick=()=>{
+  const cols=['project','manager','stage','testName','sampleCount','status','progress','bench','start','end','remark'];
+  const head=cols.join(',');
+  const rows=DATA.map(d=>cols.map(c=>{ let v=d[c]; if(c==='progress') v=v==null?'':Math.round(v*100); return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }).join(','));
+  const blob=new Blob(['\ufeff'+head+'\n'+rows.join('\n')],{type:'text/csv'});
+  download(blob,'台架试验安排_编辑后.csv');
+};
+document.getElementById('btnImport').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{ try{ const arr=JSON.parse(ev.target.result); if(Array.isArray(arr)){ snapshot(); DATA=arr.map(d=>({...d})); buildSelectors(); render(); renderTable(); alert('导入成功，共 '+DATA.length+' 条'); } }catch(err){ alert('导入失败：'+err.message); } };
+  reader.readAsText(file);
+  e.target.value='';
+};
+function download(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+/* ---------- PNG export (self-contained SVG rasterization, works offline) ---------- */
+function buildChartSVG(){
+  const range=getRange();
+  const totalDays=dayDiff(range.start,range.end);
+  const timelineW=Math.round(totalDays*pxPerDay);
+  const W=LEFT_W+timelineW;
+  const HEADER_H=54, ROW_H=46, LABEL_H=38;
+  const benches=getPageBenches(currentPage);
+  const layout=[];
+  let bodyH=0;
+  benches.forEach((b,bi)=>{
+    const tint='#ffffff';
+    const vis=DATA.filter(d=>benchOf(d)===b).filter(matchesFilter).filter(d=>d.show!==false);
+    const dated=vis.filter(d=>d.start&&d.end);
+    const lanes=assignLanes(dated);
+    const laneCount=Math.max(1,lanes.length);
+    layout.push({b,tint,vis,lanes,laneCount});
+    bodyH+=LABEL_H+laneCount*ROW_H;
+  });
+  const H=HEADER_H+bodyH;
+
+  // month bands
+  const months=[];
+  let m0=new Date(range.start.getFullYear(),range.start.getMonth(),1);
+  const lastM=new Date(range.end.getFullYear(),range.end.getMonth(),1);
+  while(m0<=lastM){ months.push(new Date(m0)); m0=new Date(m0.getFullYear(),m0.getMonth()+1,1); }
+  let bandsS='', gridS='';
+  months.forEach(mo=>{
+    const ms=new Date(mo.getFullYear(),mo.getMonth(),1);
+    const me=new Date(mo.getFullYear(),mo.getMonth()+1,0);
+    const bs=pd(fmtISO(ms))<range.start?range.start:ms;
+    const be=pd(fmtISO(me))>range.end?range.end:me;
+    const x1=dayDiff(range.start,fmtISO(bs))*pxPerDay;
+    const x2=dayDiff(range.start,fmtISO(be))*pxPerDay+pxPerDay;
+    bandsS+=`<rect x="${LEFT_W+x1}" y="0" width="${x2-x1}" height="${HEADER_H}" fill="rgba(120,140,170,0.06)" stroke="#d8dee6"/>`;
+    bandsS+=`<text x="${LEFT_W+(x1+x2)/2}" y="${HEADER_H/2+4}" font-size="12" font-weight="700" fill="#3a4a5a" text-anchor="middle">${mo.getFullYear()}年${mo.getMonth()+1}月</text>`;
+    const gx=LEFT_W+dayDiff(range.start,fmtISO(new Date(mo.getFullYear(),mo.getMonth(),1)))*pxPerDay;
+    gridS+=`<line x1="${gx}" y1="${HEADER_H}" x2="${gx}" y2="${H}" stroke="${mo.getMonth()===0?'#d3dae3':'#eef1f5'}" stroke-width="${mo.getMonth()===0?2:1}"/>`;
+  });
+  // today / update line (drawn last -> topmost layer)
+  let todayS='';
+  const today=getUpdateTime();
+  if(today>=range.start && today<=range.end){
+    const tx=LEFT_W+dayDiff(range.start,fmtISO(today))*pxPerDay;
+    todayS+=`<line x1="${tx}" y1="${HEADER_H}" x2="${tx}" y2="${H}" stroke="#e23b3b" stroke-width="2.5"/>`;
+    todayS+=`<text x="${tx}" y="${HEADER_H+13}" font-size="11" fill="#fff" text-anchor="middle"><tspan fill="#e23b3b" font-weight="700">更新 ${fmtMD(fmtISO(today))}</tspan></text>`;
+  }
+  // header corner
+  const corner=`<rect x="0" y="0" width="${LEFT_W}" height="${HEADER_H}" fill="#eef2f7" stroke="#d8dee6"/><text x="12" y="${HEADER_H/2+5}" font-size="13" font-weight="700" fill="#33414f">台架 / 试验室</text>`;
+  // rows
+  let y=HEADER_H, rowsS='';
+  layout.forEach((L,idx)=>{
+    const blockH=LABEL_H+L.laneCount*ROW_H;
+    rowsS+=`<rect x="0" y="${y}" width="${W}" height="${blockH}" fill="${L.tint}"/>`;
+    rowsS+=`<rect x="0" y="${y}" width="${LEFT_W}" height="${blockH}" fill="${L.tint}" stroke="#d8dee6"/>`;
+    const cnt=L.vis.length;
+    rowsS+=`<text x="12" y="${y+LABEL_H/2+5}" font-size="13" font-weight="700" fill="#33414f">${esc(L.b)}</text>`;
+    rowsS+=`<text x="${LEFT_W-12}" y="${y+LABEL_H/2+5}" font-size="11" font-weight="600" fill="#3a5a8a" text-anchor="end">${cnt}</text>`;
+    let ly=y+LABEL_H;
+    if(L.lanes.length){
+      L.lanes.forEach(lane=>{
+        lane.forEach(t=>{
+          const left=dayDiff(range.start,t.start)*pxPerDay;
+          const w=Math.max(1,dayDiff(t.start,t.end))*pxPerDay;
+          const prog=(t.progress==null)?0:Math.round(t.progress*100);
+          const c=statusColor(t.status);
+          const bg=mixHex(c,'#ffffff',0.85);
+          const conflict=isConflict(t);
+          const x=LEFT_W+left, by=ly+8, bh=30;
+          const narrow = w < 90;
+          rowsS+=`<rect x="${x}" y="${by}" width="${w}" height="${bh}" rx="6" fill="${bg}" stroke="${c}" stroke-width="1"/>`;
+          rowsS+=`<rect x="${x}" y="${by}" width="${(w*prog/100).toFixed(1)}" height="${bh}" rx="6" fill="${c}" opacity="0.5"/>`;
+          if(narrow){
+            rowsS+=`<text x="${x}" y="${by-4}" font-size="10" fill="#555" text-anchor="start">${fmtMD(t.start)}</text>`;
+            rowsS+=`<text x="${x+w}" y="${by+bh+12}" font-size="10" fill="#555" text-anchor="end">${fmtMD(t.end)}</text>`;
+          } else {
+            rowsS+=`<text x="${x-4}" y="${by+bh/2+3}" font-size="10" fill="#555" text-anchor="end">${fmtMD(t.start)}</text>`;
+            rowsS+=`<text x="${x+w+4}" y="${by+bh/2+3}" font-size="10" fill="#555" text-anchor="start">${fmtMD(t.end)}</text>`;
+          }
+          const label=`${t.testName||''}  样机${t.sampleCount??'?'}  ${prog==0?'0%':prog+'%'}`;
+          rowsS+=`<text x="${x+8}" y="${by+bh/2+4}" font-size="11" fill="#1f2d3d">${esc(label)}</text>`;
+          if(t.remark){ const et=fmtMD(t.end); const etw=et.length*6; const rx=x+w+4+etw+44; rowsS+=`<text x="${rx}" y="${by+bh/2+4}" font-size="11" fill="#7a8694">← ${esc(t.remark)}</text>`; }
+        });
+        ly+=ROW_H;
+      });
+    } else if(L.vis.length){
+      rowsS+=`<text x="${LEFT_W+10}" y="${ly+ROW_H/2+4}" font-size="12" fill="#9aa3ad">待排期：${L.vis.map(t=>esc(t.testName||'')).join('、')}</text>`;
+    }
+    rowsS+=`<rect x="2" y="${y+2}" width="${W-4}" height="${blockH-4}" fill="none" stroke="#000" stroke-width="2.5" rx="6"/>`;
+    y+=blockH;
+  });
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif">`+
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`+corner+bandsS+gridS+rowsS+todayS+
+    `<rect x="1" y="1" width="${W-2}" height="${H-2}" fill="none" stroke="#9aa7b5" stroke-width="2"/>`+`</svg>`;
+  return {svg,W,H};
+}
+function exportPNG(){
+  const {svg,W,H}=buildChartSVG();
+  const scale=2;
+  const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=W*scale; canvas.height=H*scale;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.scale(scale,scale);
+    ctx.drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(b=>{ if(b) download(b,'台架甘特图_'+(currentPage==='ext'?'第三方试验室':'平湖台架')+'.png'); else alert('图片导出失败'); },'image/png');
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); alert('图片导出失败'); };
+  img.src=url;
+}
+
+/* ---------- Excel 导入/导出（纯 JS 实现，离线可用，无外部依赖） ---------- */
+const XCOLS=[
+  {h:'项目',f:'project'},{h:'试验委托人',f:'manager'},{h:'阶段',f:'stage'},{h:'试验名称',f:'testName'},
+  {h:'样机数量',f:'sampleCount',n:true},{h:'状态',f:'status'},{h:'当前进度',f:'progress',n:true},
+  {h:'台架',f:'bench'},{h:'开始时间',f:'start'},{h:'结束时间',f:'end'},{h:'备注',f:'remark'},{h:'图中显示',f:'show'}
+];
+const CRC_TABLE=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(buf){let crc=0xFFFFFFFF;for(let i=0;i<buf.length;i++)crc=CRC_TABLE[(crc^buf[i])&0xFF]^(crc>>>8);return (crc^0xFFFFFFFF)>>>0;}
+function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function colLetter(n){let s='';n++;while(n>0){let r=n%26;if(r===0){r=26;n--;}s=String.fromCharCode(64+r)+s;n=Math.floor(n/26);}return s;}
+function cellXml(ref,type,val){return type==='n'?`<c r="${ref}"><v>${val}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(val)}</t></is></c>`;}
+function buildSheetXml(){
+  let body='';
+  let hc='';XCOLS.forEach((c,i)=>{hc+=cellXml(colLetter(i)+'1','s',c.h);});body+=`<row r="1">${hc}</row>`;
+  DATA.forEach((d,ri)=>{
+    let rc='';
+    XCOLS.forEach((c,i)=>{
+      let v=c.f==='show'?(d.show!==false?'是':'否'):d[c.f];
+      if(c.n){ if(v===undefined||v===null||v==='')return; v=Number(v); if(isNaN(v))return; v=v; }
+      else { v=v==null?'':String(v); if(v==='')return; }
+      rc+=cellXml(colLetter(i)+(ri+2),c.n?'n':'s',v);
+    });
+    body+=`<row r="${ri+2}">${rc}</row>`;
+  });
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+}
+function makeZip(parts){
+  const enc=new TextEncoder();
+  const files=parts.map(p=>({name:p.name,data:typeof p.data==='string'?enc.encode(p.data):p.data}));
+  const chunks=[],central=[];let offset=0;
+  const u16=new Uint8Array(2),u32=new Uint8Array(4);
+  const w16=n=>{u16[0]=n&0xff;u16[1]=(n>>8)&0xff;return u16.slice();};
+  const w32=n=>{u32[0]=n&0xff;u32[1]=(n>>8)&0xff;u32[2]=(n>>16)&0xff;u32[3]=(n>>24)&0xff;return u32.slice();};
+  files.forEach(f=>{
+    const nb=enc.encode(f.name),crc=crc32(f.data),lo=offset;
+    const lh=new Uint8Array(30+nb.length),ld=new DataView(lh.buffer);
+    ld.setUint32(0,0x04034b50,true);ld.setUint16(4,20,true);ld.setUint16(6,0x0800,true);ld.setUint16(8,0,true);
+    ld.setUint16(10,0,true);ld.setUint16(12,0,true);ld.setUint32(14,crc,true);ld.setUint32(18,f.data.length,true);ld.setUint32(22,f.data.length,true);
+    ld.setUint16(26,nb.length,true);ld.setUint16(28,0,true);lh.set(nb,30);chunks.push(lh,f.data);
+    const ch=new Uint8Array(46+nb.length),cd=new DataView(ch.buffer);
+    cd.setUint32(0,0x02014b50,true);cd.setUint16(4,20,true);cd.setUint16(6,20,true);cd.setUint16(8,0x0800,true);
+    cd.setUint16(10,0,true);cd.setUint16(12,0,true);cd.setUint16(14,0,true);cd.setUint32(16,crc,true);
+    cd.setUint32(20,f.data.length,true);cd.setUint32(24,f.data.length,true);cd.setUint16(28,nb.length,true);
+    cd.setUint16(30,0,true);cd.setUint16(32,0,true);cd.setUint16(34,0,true);cd.setUint16(36,0,true);cd.setUint32(38,0,true);cd.setUint32(42,lo,true);
+    ch.set(nb,46);central.push(ch);offset+=lh.length+f.data.length;
+  });
+  const cenSize=central.reduce((a,c)=>a+c.length,0),total=central.length;
+  const eoc=new Uint8Array(22),ed=new DataView(eoc.buffer);
+  ed.setUint32(0,0x06054b50,true);ed.setUint16(4,0,true);ed.setUint16(6,0,true);ed.setUint16(8,total,true);ed.setUint16(10,total,true);
+  ed.setUint32(12,cenSize,true);ed.setUint32(16,offset,true);ed.setUint16(20,0,true);
+  return new Blob([...chunks,...central,eoc],{type:'application/octet-stream'});
+}
+function exportXlsx(){
+  const sheet=buildSheetXml();
+  const parts=[
+    {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`},
+    {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="台架试验" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+    {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`},
+    {name:'xl/worksheets/sheet1.xml',data:sheet}
+  ];
+  const blob=makeZip(parts);
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='台架试验安排_编辑后.xlsx';a.click();URL.revokeObjectURL(a.href);
+}
+/* ---- reader ---- */
+function parseZip(buf){
+  const dv=new DataView(buf.buffer,buf.byteOffset,buf.byteLength);
+  let eocd=-1;for(let i=buf.length-22;i>=0;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error('不是有效的 xlsx 文件');
+  const cdOffset=dv.getUint32(eocd+16,true),count=dv.getUint16(eocd+10,true);
+  const files={};let p=cdOffset;
+  for(let i=0;i<count;i++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true),extraLen=dv.getUint16(p+30,true),commentLen=dv.getUint16(p+32,true);
+    const localOffset=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(buf.subarray(p+46,p+46+nameLen));
+    const lNameLen=dv.getUint16(localOffset+26,true),lExtraLen=dv.getUint16(localOffset+28,true);
+    const dataStart=localOffset+30+lNameLen+lExtraLen;
+    files[name]={data:new Uint8Array(buf.subarray(dataStart,dataStart+compSize)),method};
+    p+=46+nameLen+extraLen+commentLen;
+  }
+  return files;
+}
+async function inflateRaw(data){
+  if(typeof DecompressionStream==='undefined')throw new Error('当前浏览器不支持解压，请用 Chrome/Edge');
+  const ds=new DecompressionStream('deflate-raw');
+  const stream=new Blob([data]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function readEntry(files,name){
+  const f=files[name];if(!f)return '';
+  let bytes;if(f.method===0)bytes=f.data;else if(f.method===8)bytes=await inflateRaw(f.data);else throw new Error('不支持的压缩方式');
+  return new TextDecoder().decode(bytes);
+}
+function extractText(nodeXml){let t='';const re=/<t[^>]*>([\s\S]*?)<\/t>/g;let m;while((m=re.exec(nodeXml)))t+=m[1];return t;}
+function parseSharedStrings(xml){const out=[];const re=/<si>([\s\S]*?)<\/si>/g;let m;while((m=re.exec(xml)))out.push(extractText(m[1]));return out;}
+function parseSheet(xml,shared){
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const rows=doc.getElementsByTagNameNS('*','row');
+  const out=[];
+  for(const row of rows){
+    const cells=row.getElementsByTagNameNS('*','c');const arr=[];
+    for(const c of cells){
+      const t=c.getAttribute('t');let val='';
+      if(t==='s'){const v=c.getElementsByTagNameNS('*','v')[0];if(v)val=shared[parseInt(v.textContent)]||'';}
+      else if(t==='inlineStr'){const is=c.getElementsByTagNameNS('*','is')[0];if(is)val=extractText(is.textContent);}
+      else{const v=c.getElementsByTagNameNS('*','v')[0];if(v)val=v.textContent;}
+      arr.push(val);
+    }
+    out.push(arr);
+  }
+  return out;
+}
+async function readXlsx(ab){
+  const bytes=new Uint8Array(ab);
+  const files=parseZip(bytes);
+  const sheetName=Object.keys(files).find(n=>n.startsWith('xl/worksheets/')&&/sheet\d*\.xml$/.test(n));
+  if(!sheetName)throw new Error('未找到工作表');
+  const sheetXml=await readEntry(files,sheetName);
+  const ssName=Object.keys(files).find(n=>n.endsWith('sharedStrings.xml'));
+  const shared=ssName?parseSharedStrings(await readEntry(files,ssName)):[];
+  return parseSheet(sheetXml,shared);
+}
+function parseProgress(v){if(v===''||v==null)return null;let n=parseFloat(v);if(isNaN(n))return null;if(n>1)n=n/100;return n;}
+function normShow(v){if(v==null)return true;const s=String(v).trim().toLowerCase();return !(s==='否'||s==='0'||s==='false'||s==='n'||s==='no');}
+function excelSerialToDate(serial){const base=Math.floor(serial);const d=new Date(Date.UTC(1899,11,30));d.setUTCDate(d.getUTCDate()+base);return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');}
+function normDate(v){if(v==null||v==='')return '';if(typeof v==='number')return excelSerialToDate(v);let s=String(v).trim();const m=s.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');const n=parseFloat(s);if(!isNaN(n))return excelSerialToDate(n);return s;}
+async function importExcel(file){
+  try{
+    const rows=await readXlsx(await file.arrayBuffer());
+    if(!rows.length){alert('Excel 为空');return;}
+    const header=rows[0].map(h=>String(h).trim());
+    const HMAP={'项目':'project','试验委托人':'manager','阶段':'stage','试验名称':'testName','样机数量':'sampleCount','状态':'status','当前进度':'progress','台架':'bench','开始时间':'start','结束时间':'end','备注':'remark','图中显示':'show'};
+    const idx={};header.forEach((h,i)=>{const k=HMAP[h];if(k)idx[k]=i;});
+    if(!('testName' in idx)&&!('project' in idx)){alert('未识别到表头（项目/试验名称等列）');return;}
+    const newData=[];let maxId=0;
+    for(let r=1;r<rows.length;r++){
+      const row=rows[r];if(row.every(c=>!c||String(c).trim()===''))continue;
+      const get=k=>idx[k]!=null?row[idx[k]]:'';
+      const sd=normDate(get('start'));
+      let ed=normDate(get('end'));
+      if(ed!=='' && !/^\d{4}-\d{1,2}-\d{1,2}$/.test(ed)){ const r=evalEndFormula(get('end'), sd); if(r) ed=r; }
+      newData.push({id:++maxId,project:get('project'),manager:get('manager'),stage:get('stage'),testName:get('testName'),
+        sampleCount:(get('sampleCount')===''||get('sampleCount')==null)?0:parseInt(get('sampleCount')),
+        status:get('status')||'',progress:parseProgress(get('progress')),bench:get('bench')||'',
+        start:sd,end:ed,remark:get('remark'),show:normShow(get('show'))});
+    }
+    DATA=newData;filter={project:'',status:'',bench:'',q:''};
+    buildSelectors();render();renderTable();
+    document.getElementById('fProject').value='';document.getElementById('fStatus').value='';document.getElementById('fBench').value='';document.getElementById('fSearch').value='';
+    alert('导入成功，共 '+DATA.length+' 条');
+  }catch(e){alert('导入失败：'+e.message);}
+}
+document.getElementById('btnExportXls').onclick=exportXlsx;
+document.getElementById('btnImportXls').onclick=()=>document.getElementById('fileInputXls').click();
+document.getElementById('fileInputXls').onchange=e=>{const f=e.target.files[0];if(f)importExcel(f);e.target.value='';};
+
+/* ---------- auto-fit width (avoid horizontal scrolling) ---------- */
+let manualZoom=false;            // 用户手动缩放后不再自动适配
+function autoFit(){
+  if(manualZoom) return;
+  const sc=document.getElementById('ganttScroll');
+  if(!sc) return;
+  const range=getRange();
+  const totalDays=dayDiff(range.start,range.end);
+  if(totalDays<=0) return;
+  const cs=getComputedStyle(sc);
+  const borders=parseFloat(cs.borderLeftWidth)+parseFloat(cs.borderRightWidth);
+  const avail=sc.clientWidth-LEFT_W-borders-6;   // 可用宽度（去掉左侧标签列、边框与余量）
+  let fit=avail/totalDays;
+  fit=Math.max(2,Math.min(14,Math.floor(fit*2)/2));  // 向下取整到 0.5，保证不溢出
+  pxPerDay=fit;
+  render();
+  // 自校正：若渲染后内部仍溢出，逐步缩小直到刚好容纳
+  const grid=document.getElementById('ganttGrid');
+  let guard=0;
+  while(grid.scrollWidth>sc.clientWidth && pxPerDay>2 && guard<20){
+    pxPerDay=Math.max(2,Math.floor((pxPerDay-0.5)*2)/2);
+    render();
+    guard++;
+  }
+}
+window.addEventListener('resize',()=>{ clearTimeout(window.__afT); window.__afT=setTimeout(autoFit,200); });
+
+/* ---------- init ---------- */
+loadSavedVersion();             // 若本地有已保存的最新版，优先加载
+CloudSync.loadCfg();             // 读取云端配置
+updateCloudBadge();
+if(CloudSync.cfg && CloudSync.cfg.owner && CloudSync.cfg.path){
+  // 已配置云端：打开页面即拉取仓库中的最新数据（云端为唯一可信源，跨设备一致）
+  CloudSync.pull().then(n=>{ console.log('[云端] 已拉取 '+n+' 条'); }).catch(e=>console.warn('[云端] 自动拉取失败：',e.message));
+}
+document.getElementById('fUpdate').value=fmtISO2(updateTime);
+buildSelectors();
+render();
+renderTable();
+autoFit();                       // 首次加载按可用宽度适配，避免横向滚动
+window.__afPending=setTimeout(autoFit,250);  // 字体/布局稳定后再校准一次
+
+</script>
+</body>
+</html>
