@@ -194,7 +194,7 @@
       <button id="btnExportXls">导出Excel</button>
       <button id="btnExportImg">🖼 导出图片</button>
       <button id="btnImport">导入JSON</button>
-      <button id="btnImportXls">导入Excel</button>
+      <button id="btnImportXls">导入Excel/CSV</button>
       <button id="btnPrint">打印</button>
     </div>
   </div>
@@ -314,7 +314,7 @@
 </div>
 
 <input type="file" id="fileInput" accept="application/json" style="display:none">
-<input type="file" id="fileInputXls" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+<input type="file" id="fileInputXls" accept=".xlsx,.csv,.txt,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 
 <script>
 const RAW_DATA = [
@@ -1514,6 +1514,7 @@ document.getElementById('btnExportCsv').onclick=()=>{
 document.getElementById('btnImport').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=e=>{
   const file=e.target.files[0]; if(!file) return;
+  if(/\.(csv|txt|tsv)$/i.test(file.name||'')){ importTableFile(file); return; }
   const reader=new FileReader();
   reader.onload=ev=>{ try{ const arr=JSON.parse(ev.target.result); if(Array.isArray(arr)){ snapshot(); DATA=arr.map((d,i)=>({...(d||{}), id:(d&&d.id!=null)?d.id:(i+1), show:(d&&d.show===false)?false:true})); buildSelectors(); render(); renderTable(); alert('导入成功，共 '+DATA.length+' 条'); } }catch(err){ alert('导入失败：'+err.message); } };
   reader.readAsText(file);
@@ -1796,6 +1797,60 @@ const XCOLS=[
   {h:'样机数量',f:'sampleCount',n:true},{h:'状态',f:'status'},{h:'当前进度',f:'progress',n:true},
   {h:'台架',f:'bench'},{h:'开始时间',f:'start'},{h:'结束时间',f:'end'},{h:'备注',f:'remark'},{h:'图中显示',f:'show'}
 ];
+const XHMAP={'项目':'project','项目名称':'project','试验项目':'project','project':'project','项目经理':'manager','试验委托人':'manager','委托人':'manager','负责人':'manager','试验负责人':'manager','manager':'manager','阶段':'stage','试验阶段':'stage','stage':'stage','试验名称':'testName','名称':'testName','试验内容':'testName','testname':'testName','样机数量':'sampleCount','样机数':'sampleCount','数量':'sampleCount','samplecount':'sampleCount','状态':'status','试验状态':'status','status':'status','当前进度':'progress','进度':'progress','完成度':'progress','progress':'progress','台架':'bench','试验台架':'bench','设备':'bench','bench':'bench','开始时间':'start','开始日期':'start','开始':'start','start':'start','结束时间':'end','结束日期':'end','结束':'end','完成时间':'end','end':'end','备注':'remark','说明':'remark','remark':'remark','图中显示':'show','是否显示':'show','显示':'show','show':'show'};
+function decodeTextBuf(buf){
+  const b=new Uint8Array(buf);
+  if(b.length>=3&&b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF) return new TextDecoder('utf-8').decode(b.subarray(3));
+  try{ const s=new TextDecoder('utf-8',{fatal:true}).decode(b); if(s.indexOf('\uFFFD')<0) return s; }catch(e){}
+  try{ return new TextDecoder('gbk').decode(b); }catch(e){}
+  return new TextDecoder('utf-8').decode(b);
+}
+function splitDelim(line,d){
+  const out=[];let cur='';let q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"'){q=true;} else if(ch===d){out.push(cur);cur='';} else cur+=ch; }
+  }
+  out.push(cur);return out;
+}
+/* 通用映射：二维数组 -> 试验记录（Excel / CSV 共用），缺失列给出提示 */
+function rowsToRecords(rows){
+  const normH=s=>String(s==null?'':s).replace(/[\s\u3000]/g,'').toLowerCase();
+  let hdrRow=0,bestScore=0;
+  for(let r=0;r<Math.min(rows.length,10);r++){const rr=rows[r]||[];let sc=0;for(const c of rr){if(XHMAP[normH(c)])sc++;}if(sc>bestScore){bestScore=sc;hdrRow=r;}}
+  const header=(rows[hdrRow]||[]).map(h=>String(h==null?'':h).trim());
+  const idx={};header.forEach((h,i)=>{const k=XHMAP[normH(h)];if(k&&!(k in idx))idx[k]=i;});
+  if(!('testName' in idx)&&!('project' in idx)){alert('未识别到表头（需要「项目」或「试验名称」列）。\n实际读到的表头：'+(header.filter(x=>String(x).trim()!=='').join(' / ')||'（空）')+'\n提示：表头需在第1行；也可用「导出Excel」生成的文件作模板。');return null;}
+  const data=[];let maxId=0;
+  for(let r=hdrRow+1;r<rows.length;r++){
+    const row=rows[r];if(!row||row.every(c=>!c||String(c).trim()===''))continue;
+    const get=k=>idx[k]!=null?row[idx[k]]:'';
+    const sd=normDate(get('start'));
+    let ed=normDate(get('end'));
+    if(ed!=='' && !/^\d{4}-\d{1,2}-\d{1,2}$/.test(ed)){ const f=evalEndFormula(get('end'), sd); if(f) ed=f; }
+    data.push({id:++maxId,project:get('project'),manager:get('manager'),stage:get('stage'),testName:get('testName'),
+      sampleCount:(get('sampleCount')===''||get('sampleCount')==null)?0:parseInt(get('sampleCount')),
+      status:get('status')||'',progress:parseProgress(get('progress')),bench:get('bench')||'',
+      start:sd,end:ed,remark:get('remark'),show:normShow(get('show'))});
+  }
+  const tips=[];
+  if(!('start' in idx)&&!('end' in idx)) tips.push('未识别到「开始时间/结束时间」列，无法作图');
+  const noDate=data.filter(d=>!d.start||!d.end).length;
+  const noBench=data.filter(d=>!d.bench||String(d.bench).trim()==='').length;
+  if(noDate) tips.push(noDate+' 条缺少开始或结束时间，不会显示在图上');
+  if(noBench) tips.push(noBench+' 条未填写台架，归入「未排期」，图上不显示');
+  return {data:data,tips:tips};
+}
+function finishImport(res){
+  if(!res||!Array.isArray(res.data)) return;
+  DATA=res.data;filter={project:'',status:'',bench:'',q:''};
+  buildSelectors();render();renderTable();
+  ['fProject','fStatus','fBench','fSearch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  let msg='导入成功，共 '+DATA.length+' 条';
+  if(res.tips&&res.tips.length) msg+='\n注意：'+res.tips.join('；');
+  alert(msg);
+}
 const CRC_TABLE=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function crc32(buf){let crc=0xFFFFFFFF;for(let i=0;i<buf.length;i++)crc=CRC_TABLE[(crc^buf[i])&0xFF]^(crc>>>8);return (crc^0xFFFFFFFF)>>>0;}
 function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1929,43 +1984,30 @@ async function importExcel(file){
   try{
     const rows=await readXlsx(await file.arrayBuffer());
     if(!rows.length){alert('Excel 为空');return;}
-    const HMAP={'项目':'project','项目名称':'project','试验项目':'project','项目经理':'manager','试验委托人':'manager','委托人':'manager','负责人':'manager','试验负责人':'manager','阶段':'stage','试验阶段':'stage','试验名称':'testName','名称':'testName','试验内容':'testName','样机数量':'sampleCount','样机数':'sampleCount','数量':'sampleCount','状态':'status','试验状态':'status','当前进度':'progress','进度':'progress','完成度':'progress','台架':'bench','试验台架':'bench','设备':'bench','开始时间':'start','开始日期':'start','开始':'start','结束时间':'end','结束日期':'end','结束':'end','完成时间':'end','备注':'remark','说明':'remark','图中显示':'show','是否显示':'show','显示':'show'};
-    const normH=s=>String(s==null?'':s).replace(/[\s\u3000]/g,'');
-    // 自动定位表头行：表格上方常有标题/说明行，写死第一行会导致整表导入为空
-    let hdrRow=0,bestScore=0;
-    for(let r=0;r<Math.min(rows.length,10);r++){const rr=rows[r]||[];let sc=0;for(const c of rr){if(HMAP[normH(c)])sc++;}if(sc>bestScore){bestScore=sc;hdrRow=r;}}
-    const header=(rows[hdrRow]||[]).map(h=>String(h==null?'':h).trim());
-    const idx={};header.forEach((h,i)=>{const k=HMAP[normH(h)];if(k&&!(k in idx))idx[k]=i;});
-    if(!('testName' in idx)&&!('project' in idx)){alert('未识别到表头（需要「项目」或「试验名称」列）。\n实际读到的表头：'+(header.filter(x=>String(x).trim()!=='').join(' / ')||'（空）')+'\n提示：表头需为第1行；也可用「导出Excel」生成的文件作模板。');return;}
-    const newData=[];let maxId=0;
-    for(let r=hdrRow+1;r<rows.length;r++){
-      const row=rows[r];if(row.every(c=>!c||String(c).trim()===''))continue;
-      const get=k=>idx[k]!=null?row[idx[k]]:'';
-      const sd=normDate(get('start'));
-      let ed=normDate(get('end'));
-      if(ed!=='' && !/^\d{4}-\d{1,2}-\d{1,2}$/.test(ed)){ const r=evalEndFormula(get('end'), sd); if(r) ed=r; }
-      newData.push({id:++maxId,project:get('project'),manager:get('manager'),stage:get('stage'),testName:get('testName'),
-        sampleCount:(get('sampleCount')===''||get('sampleCount')==null)?0:parseInt(get('sampleCount')),
-        status:get('status')||'',progress:parseProgress(get('progress')),bench:get('bench')||'',
-        start:sd,end:ed,remark:get('remark'),show:normShow(get('show'))});
-    }
-    DATA=newData;filter={project:'',status:'',bench:'',q:''};
-    buildSelectors();render();renderTable();
-    document.getElementById('fProject').value='';document.getElementById('fStatus').value='';document.getElementById('fBench').value='';document.getElementById('fSearch').value='';
-    const _noBench=DATA.filter(d=>!d.bench||String(d.bench).trim()==='').length;
-    const _noDate=DATA.filter(d=>!d.start||!d.end).length;
-    let _msg='导入成功，共 '+DATA.length+' 条';
-    const _tips=[];
-    if(!('start' in idx)&&!('end' in idx)) _tips.push('未识别到「开始时间/结束时间」列，无法作图');
-    if(_noDate) _tips.push(_noDate+' 条缺少开始或结束时间，不会显示在图上');
-    if(_noBench) _tips.push(_noBench+' 条未填写台架，归入「未排期」，图上不显示');
-    if(_tips.length) _msg+='\n注意：'+_tips.join('；');
-    alert(_msg);
+    finishImport(rowsToRecords(rows));
+  }catch(e){alert('导入失败：'+e.message);}
+}
+function importDelimited(text){
+  try{
+    let t=String(text==null?'':text).replace(/^\uFEFF/,'');
+    const lines=t.split(/\r\n|\r|\n/).filter(l=>String(l).trim()!=='');
+    if(!lines.length){alert('文件内容为空');return;}
+    const probe=lines[0];
+    const d=(probe.split('\t').length>1)?'\t':((probe.split(',').length>=probe.split(';').length)?',':';');
+    const rows=lines.map(l=>splitDelim(l,d));
+    finishImport(rowsToRecords(rows));
+  }catch(e){alert('导入失败：'+e.message);}
+}
+async function importTableFile(file){
+  try{
+    const n=String((file&&file.name)||'').toLowerCase();
+    if(/\.(csv|txt|tsv)$/.test(n)) importDelimited(decodeTextBuf(await file.arrayBuffer()));
+    else await importExcel(file);
   }catch(e){alert('导入失败：'+e.message);}
 }
 document.getElementById('btnExportXls').onclick=exportXlsx;
 document.getElementById('btnImportXls').onclick=()=>document.getElementById('fileInputXls').click();
-document.getElementById('fileInputXls').onchange=e=>{const f=e.target.files[0];if(f)importExcel(f);e.target.value='';};
+document.getElementById('fileInputXls').onchange=e=>{const f=e.target.files[0];if(f)importTableFile(f);e.target.value='';};
 
 /* ---------- auto-fit width (avoid horizontal scrolling) ---------- */
 let manualZoom=false;            // 用户手动缩放后不再自动适配
