@@ -1515,7 +1515,7 @@ document.getElementById('btnImport').onclick=()=>document.getElementById('fileIn
 document.getElementById('fileInput').onchange=e=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
-  reader.onload=ev=>{ try{ const arr=JSON.parse(ev.target.result); if(Array.isArray(arr)){ snapshot(); DATA=arr.map(d=>({...d})); buildSelectors(); render(); renderTable(); alert('导入成功，共 '+DATA.length+' 条'); } }catch(err){ alert('导入失败：'+err.message); } };
+  reader.onload=ev=>{ try{ const arr=JSON.parse(ev.target.result); if(Array.isArray(arr)){ snapshot(); DATA=arr.map((d,i)=>({...(d||{}), id:(d&&d.id!=null)?d.id:(i+1), show:(d&&d.show===false)?false:true})); buildSelectors(); render(); renderTable(); alert('导入成功，共 '+DATA.length+' 条'); } }catch(err){ alert('导入失败：'+err.message); } };
   reader.readAsText(file);
   e.target.value='';
 };
@@ -1887,19 +1887,26 @@ async function readEntry(files,name){
 }
 function extractText(nodeXml){let t='';const re=/<t[^>]*>([\s\S]*?)<\/t>/g;let m;while((m=re.exec(nodeXml)))t+=m[1];return t;}
 function parseSharedStrings(xml){const out=[];const re=/<si>([\s\S]*?)<\/si>/g;let m;while((m=re.exec(xml)))out.push(extractText(m[1]));return out;}
+function colRefToIndex(ref){let n=0;for(let i=0;i<ref.length;i++){const ch=ref[i];if(!((ch>='A'&&ch<='Z')||(ch>='a'&&ch<='z')))break;n=n*26+(ch.toUpperCase().charCodeAt(0)-64);}return n-1;}
 function parseSheet(xml,shared){
   const doc=new DOMParser().parseFromString(xml,'application/xml');
   const rows=doc.getElementsByTagNameNS('*','row');
   const out=[];
   for(const row of rows){
-    const cells=row.getElementsByTagNameNS('*','c');const arr=[];
+    const cells=row.getElementsByTagNameNS('*','c');const pos=[];let maxCol=-1;
     for(const c of cells){
       const t=c.getAttribute('t');let val='';
       if(t==='s'){const v=c.getElementsByTagNameNS('*','v')[0];if(v)val=shared[parseInt(v.textContent)]||'';}
-      else if(t==='inlineStr'){const is=c.getElementsByTagNameNS('*','is')[0];if(is)val=extractText(is.textContent);}
+      else if(t==='inlineStr'){const is=c.getElementsByTagNameNS('*','is')[0];if(is){const ts=is.getElementsByTagNameNS('*','t');if(ts&&ts.length){let s='';for(let i=0;i<ts.length;i++)s+=ts[i].textContent;val=s;}else val=is.textContent;}}
       else{const v=c.getElementsByTagNameNS('*','v')[0];if(v)val=v.textContent;}
-      arr.push(val);
+      // 按列标（如 C5）定位：空单元格会被 xlsx 省略，若不按列标对齐会导致整行数据左移错位
+      const ref=c.getAttribute('r')||'';
+      const ci=ref?colRefToIndex(ref):pos.length;
+      pos.push([ci,val]);
+      if(ci>maxCol)maxCol=ci;
     }
+    const arr=[];for(let i=0;i<=maxCol;i++)arr.push('');
+    for(const p of pos){if(p[0]>=0)arr[p[0]]=p[1];}
     out.push(arr);
   }
   return out;
@@ -1922,12 +1929,16 @@ async function importExcel(file){
   try{
     const rows=await readXlsx(await file.arrayBuffer());
     if(!rows.length){alert('Excel 为空');return;}
-    const header=rows[0].map(h=>String(h).trim());
-    const HMAP={'项目':'project','项目经理':'manager','阶段':'stage','试验名称':'testName','样机数量':'sampleCount','状态':'status','当前进度':'progress','台架':'bench','开始时间':'start','结束时间':'end','备注':'remark','图中显示':'show'};
-    const idx={};header.forEach((h,i)=>{const k=HMAP[h];if(k)idx[k]=i;});
-    if(!('testName' in idx)&&!('project' in idx)){alert('未识别到表头（项目/试验名称等列）');return;}
+    const HMAP={'项目':'project','项目名称':'project','试验项目':'project','项目经理':'manager','试验委托人':'manager','委托人':'manager','负责人':'manager','试验负责人':'manager','阶段':'stage','试验阶段':'stage','试验名称':'testName','名称':'testName','试验内容':'testName','样机数量':'sampleCount','样机数':'sampleCount','数量':'sampleCount','状态':'status','试验状态':'status','当前进度':'progress','进度':'progress','完成度':'progress','台架':'bench','试验台架':'bench','设备':'bench','开始时间':'start','开始日期':'start','开始':'start','结束时间':'end','结束日期':'end','结束':'end','完成时间':'end','备注':'remark','说明':'remark','图中显示':'show','是否显示':'show','显示':'show'};
+    const normH=s=>String(s==null?'':s).replace(/[\s\u3000]/g,'');
+    // 自动定位表头行：表格上方常有标题/说明行，写死第一行会导致整表导入为空
+    let hdrRow=0,bestScore=0;
+    for(let r=0;r<Math.min(rows.length,10);r++){const rr=rows[r]||[];let sc=0;for(const c of rr){if(HMAP[normH(c)])sc++;}if(sc>bestScore){bestScore=sc;hdrRow=r;}}
+    const header=(rows[hdrRow]||[]).map(h=>String(h==null?'':h).trim());
+    const idx={};header.forEach((h,i)=>{const k=HMAP[normH(h)];if(k&&!(k in idx))idx[k]=i;});
+    if(!('testName' in idx)&&!('project' in idx)){alert('未识别到表头（需要「项目」或「试验名称」列）。\n实际读到的表头：'+(header.filter(x=>String(x).trim()!=='').join(' / ')||'（空）')+'\n提示：表头需为第1行；也可用「导出Excel」生成的文件作模板。');return;}
     const newData=[];let maxId=0;
-    for(let r=1;r<rows.length;r++){
+    for(let r=hdrRow+1;r<rows.length;r++){
       const row=rows[r];if(row.every(c=>!c||String(c).trim()===''))continue;
       const get=k=>idx[k]!=null?row[idx[k]]:'';
       const sd=normDate(get('start'));
@@ -1941,7 +1952,15 @@ async function importExcel(file){
     DATA=newData;filter={project:'',status:'',bench:'',q:''};
     buildSelectors();render();renderTable();
     document.getElementById('fProject').value='';document.getElementById('fStatus').value='';document.getElementById('fBench').value='';document.getElementById('fSearch').value='';
-    alert('导入成功，共 '+DATA.length+' 条');
+    const _noBench=DATA.filter(d=>!d.bench||String(d.bench).trim()==='').length;
+    const _noDate=DATA.filter(d=>!d.start||!d.end).length;
+    let _msg='导入成功，共 '+DATA.length+' 条';
+    const _tips=[];
+    if(!('start' in idx)&&!('end' in idx)) _tips.push('未识别到「开始时间/结束时间」列，无法作图');
+    if(_noDate) _tips.push(_noDate+' 条缺少开始或结束时间，不会显示在图上');
+    if(_noBench) _tips.push(_noBench+' 条未填写台架，归入「未排期」，图上不显示');
+    if(_tips.length) _msg+='\n注意：'+_tips.join('；');
+    alert(_msg);
   }catch(e){alert('导入失败：'+e.message);}
 }
 document.getElementById('btnExportXls').onclick=exportXlsx;
